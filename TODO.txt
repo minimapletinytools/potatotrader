@@ -1,0 +1,54 @@
+trading algo at high level
+
+parameters:
+
+-exchange
+  -pairs (market)
+
+-market
+  -buy orders
+  -sell orders
+  -delay
+  -volatility?
+    -needs to be measured in price and volume
+    -needs to be measured as a chance as well?
+
+-transaction
+  -price
+  -volume
+  -fee
+  -cancellation conditions?
+  -risk assesment?
+  -id
+
+API
+
+exchange
+
+-startup
+  -for each exchange
+    -query existing transactions
+      -cancel all of them?
+  -query account balances
+    -store them
+  -read trading parameters
+    -trading volume
+    -risk
+    -trading pairs? (hardcoded probably)
+
+-monitoring
+  -for each exchange
+    -check pairs
+      -generate exchange functions
+  -for each transaction
+    -if tx processed
+      -log gain/loss
+    -if tx need to be cancelled
+      -log why it was cancelled
+    -modify exchange function to include existing transactions
+  -for each exchange function
+    -check if new trade conditions are met
+      -generate trades, send them and add them to list
+
+
+logging

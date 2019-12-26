@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+
 module Bilaxy (
   send
 )
 where
 
+import BilaxyAeson
 import Data.Sort (sort)
 import Data.Text.Encoding
 import System.IO
@@ -23,6 +25,8 @@ toStrict1 = BS.concat . LBS.toChunks
 type Params = [(BS.ByteString, BS.ByteString)]
 type KeyPair = (BS.ByteString, BS.ByteString)
 
+-- TODO prompt for password and decrypt
+-- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
 readKeys :: IO (BS.ByteString, BS.ByteString)
 readKeys = do
     handle <- openFile "keys.txt" ReadMode
@@ -31,9 +35,7 @@ readKeys = do
     hClose handle
     return (pub, sec)
 
-joinParams :: Params -> BS.ByteString
-joinParams = foldl1 (\x y -> x <> "&" <> y) . map (\(x,y)-> x <> "=" <> y)
-
+-- | signParams takes a KeyPair and query parameters and signs according to Bilaxy's requirements
 signParams :: KeyPair -> Params -> Params
 signParams (pub, sec) params = final
   where
@@ -41,36 +43,45 @@ signParams (pub, sec) params = final
     p = joinParams $ sort (params' ++ [("secret", sec)])
     hash = toStrict1 .BSB.toLazyByteString . BSB.byteStringHex $ SHA1.hash p
     final = params' ++ [("sign", hash)]
+    joinParams :: Params -> BS.ByteString
+    joinParams = foldl1 (\x y -> x <> "&" <> y) . map (\(x,y)-> x <> "=" <> y)
 
+bilaxyTradingPairIds :: [(String, BS.ByteString)]
+bilaxyTradingPairIds = [("TT/USDT","151")
+                        , ("BIA/USDT","167")
+                        , ("ETH/USDT","79")]
 
---tickerRequestQuery ="{\"symbol=151\"}"
+bilaxyGateway = "https://api.bilaxy.com"
+
 tickerRequestQuery=[("symbol","151")]
 depthRequestQuery=[("symbol","151")]
 txRequestQuery=[("symbol","151"),("size","10")]
 balanceRequestQuery = []
 tradeListRequestQuery=[("since","1572566400"),("symbol","151"),("type","0")]
 
-
-toQuery :: Params -> Query
-toQuery = map (\(x,y) -> (x, Just y))
-
+-- | query sets the method, path and params of a Request
 query :: BS.ByteString -> BS.ByteString -> Params -> Request -> Request
 query method path query =
   setRequestMethod method .
   setRequestPath path .
   setRequestQueryString (toQuery query)
+  where
+    toQuery = map (\(x,y) -> (x, Just y))
 
+-- | generateRequest generates a open Bilaxy API request with given method, path and params
 generateRequest :: BS.ByteString -> BS.ByteString -> Params -> IO Request
 generateRequest method path q = do
-  r <- parseRequest "https://api.bilaxy.com"
+  r <- parseRequest bilaxyGateway
   return $ query method path q r
 
+-- | generatePrivRequest generates a private Bilaxy API request with given keypair, method, path, and params
 generatePrivRequest :: KeyPair -> BS.ByteString -> BS.ByteString -> Params -> IO Request
 generatePrivRequest kp method path q = do
   let q2 = signParams kp q
-  r <- parseRequest "https://api.bilaxy.com"
+  r <- parseRequest bilaxyGateway
   return $ query method path q2 r
 
+-- tickerRequest makes a ticker request for the given pair
 tickerRequest :: IO Request
 tickerRequest = generateRequest "GET" "/v1/ticker/" tickerRequestQuery
 
@@ -99,8 +110,11 @@ send = do
   --request <- depthRequest
   --request <- tickerRequest
   --request <- txRequest
-  request <- tradeListRequest kp
-  --request <- balanceRequest kp
+  --request <- tradeListRequest kp
+  request <- balanceRequest kp
   print request
   response <- httpLBS request
-  printResponse response
+  --print (getResponseBody response)
+  let x = eitherDecode $ getResponseBody response :: Either String (BilaxyResponse [BalanceData])
+  print x
+  --printResponse response
