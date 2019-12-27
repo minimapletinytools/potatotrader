@@ -38,8 +38,7 @@ import Debug.Trace (trace)
 
 -- load abi
 [WEB3.abiFrom|uniswap.json|]
--- # @return Amount of Tokens bought.
--- def ethToTokenSwapInput(min_tokens: uint256, deadline: timestamp) -> uint256:
+
 
 -- # @return Amount of ETH bought.
 -- def tokenToEthSwapInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp) -> uint256(wei):
@@ -107,8 +106,7 @@ traceParams = WEB3.withParam (\x -> trace (paramsToString x) $ x)
 -- | getEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
 getEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Integer, Integer)
 getEthTokenBalances addr = do
-  bn' <- WEB3.blockNumber
-  let bn = WEB3.BlockWithNumber bn'
+  bn <- WEB3.blockNumber >>= return . WEB3.BlockWithNumber
   balance <- WEB3.getBalance addr bn
   WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
     tAddr <- WEB3.withParam (WEB3.to .~ addr) $ do
@@ -116,6 +114,18 @@ getEthTokenBalances addr = do
     tBalance <- WEB3.withParam (WEB3.to .~ tAddr) $ do
       balanceOf addr
     return (toInteger tBalance, toInteger balance)
+
+-- | ethToTokenSwap returns a WEB3 operation to swap tokens at a given exchange
+-- calls the following function:
+-- # @return Amount of Tokens bought.
+-- def ethToTokenSwapInput(min_tokens: uint256, deadline: timestamp) -> uint256:
+ethToTokenSwap :: WEB3.LocalKey -> WEB3.Address -> Integer -> WEB3.Web3 WEB3.TxReceipt
+ethToTokenSwap account addr amount = do
+  bn <- WEB3.blockNumber
+  block <- WEB3.getBlockByNumber bn
+  let time = toInteger $ WEB3.blockTimestamp block
+  WEB3.withAccount account . WEB3.withParam (WEB3.to .~ addr) $ do
+    ethToTokenSwapInput (fromInteger amount) (fromInteger (time + 2000))
 
 getPrice :: IO ()
 getPrice = do
