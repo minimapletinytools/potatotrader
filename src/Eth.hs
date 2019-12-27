@@ -18,6 +18,8 @@ module Eth (
   testTransaction
 ) where
 
+import Arbitrage
+
 import System.IO
 import Control.Monad (mapM_)
 import Data.Function ((&))
@@ -121,7 +123,7 @@ calcInputPrice (fn, fd) input_amount input_reserve output_reserve = numerator `d
 calcFee :: UniFee -> Integer -> Integer -> Integer -> Integer
 calcFee fee input_amount input_reserve output_reserve =
   calcInputPrice noFee input_amount input_reserve output_reserve
-  - fee noFee input_amount input_reserve output_reserve
+  - calcInputPrice fee input_amount input_reserve output_reserve
 
 -- | noMarginalGain returns the amount of input tokens that should be bought
 -- such that marginal gain given to arbPrice exchange rate is zero
@@ -132,16 +134,11 @@ calcFee fee input_amount input_reserve output_reserve =
 --solvePrice ::
 
 -- | getUniEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
-getUniEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Integer, Integer)
+getUniEthTokenBalances :: WEB3.Address -> WEB3.Web3 Liquidity
 getUniEthTokenBalances addr = do
-  bn <- WEB3.blockNumber >>= return . WEB3.BlockWithNumber
-  balance <- WEB3.getBalance addr bn
-  WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
-    tAddr <- WEB3.withParam (WEB3.to .~ addr) $ do
-      tokenAddress
-    tBalance <- WEB3.withParam (WEB3.to .~ tAddr) $ do
-      balanceOf addr
-    return (toInteger tBalance, toInteger balance)
+  tAddr <- WEB3.withAccount () $ do
+    WEB3.withParam (WEB3.to .~ addr) tokenAddress
+  getLiquidity addr tAddr
 
 -- | ethToTokenSwap returns a WEB3 operation to swap tokens at a given exchange
 -- calls the following function:
@@ -157,6 +154,19 @@ ethToTokenSwap account addr amount = do
     . WEB3.withParam (WEB3.to .~ addr)
     . WEB3.withParam (WEB3.value .~ (1000 :: WEB3.Ether)) $ do
       ethToTokenSwapInput (fromInteger amount) (fromInteger ((time) + 2000))))
+
+-- | getLiquidity returns (TT, token) liquidity in account
+getLiquidity :: WEB3.Address -> WEB3.Address -> WEB3.Web3 Liquidity
+getLiquidity addr tAddr = do
+  bn <- WEB3.blockNumber >>= return . WEB3.BlockWithNumber
+  balance <- WEB3.getBalance addr bn
+  WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
+    tBalance <- WEB3.withParam (WEB3.to .~ tAddr) $ do
+      balanceOf addr
+    return (toInteger balance, toInteger tBalance)
+
+getTTUSDTLiquidity :: WEB3.Address -> WEB3.Web3 Liquidity
+getTTUSDTLiquidity addr = getLiquidity addr ttUSDT
 
 prettyShowResult :: (a -> String) -> Either WEB3.Web3Error a -> String
 prettyShowResult _ (Left e) = "error: " ++ show e
