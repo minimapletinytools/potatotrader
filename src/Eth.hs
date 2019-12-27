@@ -30,7 +30,7 @@ import qualified Network.Ethereum.Account as WEB3
 import Lens.Micro ((.~))
 import qualified Network.Ethereum.Account.Internal as WEB3
 import qualified Network.Ethereum.Api.Provider as WEB3
-import qualified Network.Ethereum.Api.Types as WEB3
+import qualified Network.Ethereum.Api.Types as WEB3 hiding (blockNumber)
 import qualified Network.Ethereum.Api.Eth as WEB3
 import qualified Network.JsonRpc.TinyClient as WEB3
 
@@ -65,7 +65,6 @@ paramsToString p =
    ++ "\ngas price: " ++ show (WEB3._gasPrice p)
    ++ "\nblock: " ++ show (WEB3._block p)
    ++ "\naccount: " ++ show (WEB3._account p)
-
 
 readKeys :: Integer -> IO WEB3.LocalKey
 readKeys chainId = do
@@ -104,6 +103,19 @@ uniswapFact = "0xcE393b11872EE5020828e443f6Ec9DE58CD8b6c5"
 
 traceParams :: (Show p,  WEB3.Account p (WEB3.AccountT p)) => WEB3.AccountT p m a -> WEB3.AccountT p m a
 traceParams = WEB3.withParam (\x -> trace (paramsToString x) $ x)
+
+-- | getEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
+getEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Integer, Integer)
+getEthTokenBalances addr = do
+  bn' <- WEB3.blockNumber
+  let bn = WEB3.BlockWithNumber bn'
+  balance <- WEB3.getBalance addr bn
+  WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
+    tAddr <- WEB3.withParam (WEB3.to .~ addr) $ do
+      tokenAddress
+    tBalance <- WEB3.withParam (WEB3.to .~ tAddr) $ do
+      balanceOf addr
+    return (toInteger tBalance, toInteger balance)
 
 getPrice :: IO ()
 getPrice = do

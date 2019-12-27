@@ -1,3 +1,9 @@
+{-
+just an example for testing...
+you can delete this...
+note that uniswap.json has the full ERC20 ABI in it.
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveGeneric         #-}
