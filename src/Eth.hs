@@ -14,11 +14,13 @@
 module Eth (
   getPrice,
   testmain,
-  paramsToString
+  paramsToString,
+  testTransaction
 ) where
 
 import System.IO
 import Control.Monad (mapM_)
+import Data.Function ((&))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteArray.HexString as BS
@@ -103,9 +105,35 @@ uniswapFact = "0xcE393b11872EE5020828e443f6Ec9DE58CD8b6c5"
 traceParams :: (Show p,  WEB3.Account p (WEB3.AccountT p)) => WEB3.AccountT p m a -> WEB3.AccountT p m a
 traceParams = WEB3.withParam (\x -> trace (paramsToString x) $ x)
 
--- | getEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
-getEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Integer, Integer)
-getEthTokenBalances addr = do
+type UniFee = (Integer, Integer)
+noFee :: UniFee
+noFee = (1,1)
+
+-- | calcInputPrice is just uniswap getInputPrice
+-- input_amonut is amount being sold, returns amount bought
+calcInputPrice :: UniFee -> Integer -> Integer -> Integer -> Integer
+calcInputPrice (fn, fd) input_amount input_reserve output_reserve = numerator `div` denominator where
+  input_amount_with_fee = input_amount * fn
+  numerator = input_amount_with_fee * output_reserve
+  denominator = (input_reserve * fd) + input_amount_with_fee
+
+-- | calcFee returns the tx fee fee in output tokens
+calcFee :: UniFee -> Integer -> Integer -> Integer -> Integer
+calcFee fee input_amount input_reserve output_reserve =
+  calcInputPrice noFee input_amount input_reserve output_reserve
+  - fee noFee input_amount input_reserve output_reserve
+
+-- | noMarginalGain returns the amount of input tokens that should be bought
+-- such that marginal gain given to arbPrice exchange rate is zero
+--noMarginalGain :: Double -> UniFee -> Integer -> Integer -> Integer
+--noMarginalGain
+
+
+--solvePrice ::
+
+-- | getUniEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
+getUniEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Integer, Integer)
+getUniEthTokenBalances addr = do
   bn <- WEB3.blockNumber >>= return . WEB3.BlockWithNumber
   balance <- WEB3.getBalance addr bn
   WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
@@ -124,8 +152,25 @@ ethToTokenSwap account addr amount = do
   bn <- WEB3.blockNumber
   block <- WEB3.getBlockByNumber bn
   let time = toInteger $ WEB3.blockTimestamp block
-  WEB3.withAccount account . WEB3.withParam (WEB3.to .~ addr) $ do
-    ethToTokenSwapInput (fromInteger amount) (fromInteger (time + 2000))
+  -- this trick is needed to solve for scoping issue on time variable
+  time & (\time -> (WEB3.withAccount account
+    . WEB3.withParam (WEB3.to .~ addr)
+    . WEB3.withParam (WEB3.value .~ (1000 :: WEB3.Ether)) $ do
+      ethToTokenSwapInput (fromInteger amount) (fromInteger ((time) + 2000))))
+
+prettyShowResult :: (a -> String) -> Either WEB3.Web3Error a -> String
+prettyShowResult _ (Left e) = "error: " ++ show e
+prettyShowResult f (Right x) = f x
+
+testTransaction :: IO ()
+testTransaction = do
+  account <- readKeys chainID
+  res <- WEB3.runWeb3' (WEB3.HttpProvider providerURL) $ do
+    (tokens, eth) <- getUniEthTokenBalances uniTTUSDT
+    return (tokens, eth)
+    --receipt <- ethToTokenSwap account uniTTUSDT 1
+    --return (receipt, tokens, eth)
+  putStrLn $ prettyShowResult show res
 
 getPrice :: IO ()
 getPrice = do
@@ -184,7 +229,6 @@ testmain = do
 
     -- Get half of balance
     let halfBalance = WEB3.fromWei (myBalance)
-
 
     -- Use default account
     WEB3.withAccount () $ do
