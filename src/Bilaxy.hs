@@ -114,16 +114,15 @@ printResponse response = do
 send :: IO ()
 send = do
   kp <- readKeys
-  --request <- depthRequest
+  request <- depthRequest
   --request <- tickerRequest
   --request <- txRequest
   --request <- tradeListRequest kp
-  request <- balanceRequest kp
+  --request <- balanceRequest kp
   print request
   response <- httpLBS request
-  --print (getResponseBody response)
+  printResponse response
   let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
   case x of
     Left v -> print v
     Right (BA.BilaxyResponse _ bd) -> print $ pullBalance "TT" (BA.sortBalanceData bd)
-  --printResponse response
