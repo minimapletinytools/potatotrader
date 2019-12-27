@@ -6,8 +6,9 @@ module Bilaxy (
 )
 where
 
-import BilaxyAeson
+import qualified BilaxyAeson as BA
 import Data.Sort (sort)
+import qualified Data.Map as M
 import Data.Text.Encoding
 import System.IO
 import Data.Aeson
@@ -97,6 +98,12 @@ tradeListRequest kp = generatePrivRequest kp "GET" "/v1/trade_list/" tradeListRe
 balanceRequest :: KeyPair -> IO Request
 balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" balanceRequestQuery
 
+-- pullBalance returns (balance, frozen) from a BalanceData query
+pullBalance :: String -> BA.BalanceDataMap -> Maybe (Double, Double)
+pullBalance key bdm = do
+  bd <- M.lookup key bdm
+  return (BA.balance bd, BA.frozen bd)
+
 printResponse :: Response L8.ByteString -> IO ()
 printResponse response = do
   putStrLn $ "The status code was: " ++
@@ -115,6 +122,8 @@ send = do
   print request
   response <- httpLBS request
   --print (getResponseBody response)
-  let x = eitherDecode $ getResponseBody response :: Either String (BilaxyResponse [BalanceData])
-  print x
+  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
+  case x of
+    Left v -> print v
+    Right (BA.BilaxyResponse _ bd) -> print $ pullBalance "TT" (BA.sortBalanceData bd)
   --printResponse response

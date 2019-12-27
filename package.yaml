@@ -30,6 +30,7 @@ dependencies:
 - web3
 - microlens
 - sort
+- containers
 
 library:
   source-dirs: src

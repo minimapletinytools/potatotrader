@@ -4,12 +4,15 @@
 
 module BilaxyAeson (
   BilaxyResponse(..),
-  BalanceData(..)
+  BalanceData(..),
+  BalanceDataMap(..),
+  sortBalanceData,
 )
 where
 
 import GHC.Generics
 import Data.Maybe
+import qualified Data.Map as M
 import Data.Aeson
 import Data.Aeson.Types
 import           Data.Aeson.Types         ( parseMaybe, parseEither, Result(..) )
@@ -22,9 +25,14 @@ data BilaxyResponse a = BilaxyResponse {
 
 data BalanceData = BalanceData {
   symbol :: Int
-  , balance :: Integer
+  , balance :: Double
   , name :: String
-  , frozen :: Integer } deriving (Generic, Show)
+  , frozen :: Double } deriving (Generic, Show)
+
+type BalanceDataMap = M.Map String BalanceData
+
+sortBalanceData :: [BalanceData] -> BalanceDataMap
+sortBalanceData = foldl (\m bd -> M.insert (name bd) bd m) M.empty
 
 instance (FromJSON a) => FromJSON (BilaxyResponse a) where
   parseJSON = withObject "BilaxyResponse" $ \v -> do
