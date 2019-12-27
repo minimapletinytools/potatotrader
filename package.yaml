@@ -31,6 +31,7 @@ dependencies:
 - microlens
 - sort
 - containers
+- vector
 
 library:
   source-dirs: src

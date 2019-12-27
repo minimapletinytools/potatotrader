@@ -111,18 +111,35 @@ printResponse response = do
   print $ getResponseHeader "Content-Type" response
   L8.putStrLn $ getResponseBody response
 
-send :: IO ()
-send = do
+testBalance :: IO ()
+testBalance = do
   kp <- readKeys
-  request <- depthRequest
-  --request <- tickerRequest
-  --request <- txRequest
-  --request <- tradeListRequest kp
-  --request <- balanceRequest kp
+  request <- balanceRequest kp
   print request
   response <- httpLBS request
-  printResponse response
   let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
   case x of
     Left v -> print v
     Right (BA.BilaxyResponse _ bd) -> print $ pullBalance "TT" (BA.sortBalanceData bd)
+
+testDepth :: IO ()
+testDepth = do
+  request <- depthRequest
+  print request
+  response <- httpLBS request
+  printResponse response
+  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse BA.MarketDepth)
+  case x of
+    Left v -> print v
+    Right (BA.BilaxyResponse _ md) -> print md
+
+send :: IO ()
+send = do
+  testDepth
+  --kp <- readKeys
+  --request <- tickerRequest
+  --request <- txRequest
+  --request <- tradeListRequest kp
+  --print request
+  --response <- httpLBS request
+  --printResponse response
