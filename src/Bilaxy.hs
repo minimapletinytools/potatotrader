@@ -6,6 +6,8 @@ module Bilaxy (
 )
 where
 
+import Arbitrage
+
 import qualified BilaxyAeson as BA
 import Data.Sort (sort)
 import qualified Data.Map as M
@@ -98,11 +100,15 @@ tradeListRequest kp = generatePrivRequest kp "GET" "/v1/trade_list/" tradeListRe
 balanceRequest :: KeyPair -> IO Request
 balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" balanceRequestQuery
 
--- pullBalance returns (balance, frozen) from a BalanceData query
-pullBalance :: String -> BA.BalanceDataMap -> Maybe (Double, Double)
-pullBalance key bdm = do
+-- pullBalance returns (balance, frozen) of key from a BalanceData query
+pullBalance :: BA.BalanceDataMap -> String -> Maybe (Double, Double)
+pullBalance bdm key = do
   bd <- M.lookup key bdm
   return (BA.balance bd, BA.frozen bd)
+
+-- TODO need to convert units
+--getLiquidityPair :: (String, String) -> BA.BalanceDataMap -> Liquidity
+--getLiquidityPair keys bdm = fmap (fst . pullBalance $ bdm) keys
 
 printResponse :: Response L8.ByteString -> IO ()
 printResponse response = do
@@ -120,7 +126,7 @@ testBalance = do
   let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
   case x of
     Left v -> print v
-    Right (BA.BilaxyResponse _ bd) -> print $ pullBalance "TT" (BA.sortBalanceData bd)
+    Right (BA.BilaxyResponse _ bd) -> print $ pullBalance (BA.sortBalanceData bd) "TT"
 
 testDepth :: IO ()
 testDepth = do
