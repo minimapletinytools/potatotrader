@@ -53,6 +53,7 @@ dependencies:
 - cryptohash
 - text
 - bytestring
+- utf8-string
 - retry
 - web3
 - microlens

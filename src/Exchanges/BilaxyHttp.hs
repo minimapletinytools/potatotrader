@@ -2,7 +2,9 @@
 
 
 module Exchanges.BilaxyHttp (
-  getBalanceOf
+  getBalanceOf,
+
+  testBalance
 )
 where
 
@@ -14,6 +16,7 @@ import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Builder    as BSB
 import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.ByteString.Lazy.Char8 as L8
+import qualified Data.ByteString.UTF8       as BS
 import qualified Data.Map                   as M
 import           Data.Sort                  (sort)
 import           Data.Text.Encoding
@@ -21,6 +24,7 @@ import           Debug.Trace                (trace)
 import qualified Exchanges.BilaxyAeson      as BA
 import           Network.HTTP.Simple
 import           System.IO
+import           Text.Printf
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
@@ -59,7 +63,6 @@ bilaxyGateway = "https://api.bilaxy.com"
 tickerRequestQuery=[("symbol","151")]
 depthRequestQuery=[("symbol","151")]
 txRequestQuery=[("symbol","151"),("size","10")]
-balanceRequestQuery = []
 tradeListRequestQuery=[("since","1572566400"),("symbol","151"),("type","0")]
 
 -- | query sets the method, path and params of a Request
@@ -84,21 +87,24 @@ generatePrivRequest kp method path q = do
   r <- parseRequest bilaxyGateway
   return $ query method path q2 r
 
--- tickerRequest makes a ticker request for the given pair
-tickerRequest :: IO Request
-tickerRequest = generateRequest "GET" "/v1/ticker/" tickerRequestQuery
-
-depthRequest :: IO Request
-depthRequest = generateRequest "GET" "/v1/depth/" depthRequestQuery
-
-txRequest :: IO Request
-txRequest = generateRequest "GET" "/v1/orders/" txRequestQuery
-
-tradeListRequest :: KeyPair -> IO Request
-tradeListRequest kp = generatePrivRequest kp "GET" "/v1/trade_list/" tradeListRequestQuery
+makeRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
+makeRequest priv method path params = do
+  kp <- readKeys
+  request <- if priv
+    then generatePrivRequest kp method path params
+    else generateRequest method path params
+  printf "querying (priv=%s):\n%s" (show priv) (show request)
+  response <- httpLBS request
+  printResponse response
+  let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String (BA.BilaxyResponse a)
+  case x of
+    Left v  -> error $ "bilaxy query error: " ++ show v
+    Right (BA.BilaxyResponse code a) -> case code of
+      200 -> return a
+      _   -> error $ "bad return code: " ++ show code
 
 balanceRequest :: KeyPair -> IO Request
-balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" balanceRequestQuery
+balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" []
 
 -- pullBalance returns (balance, frozen) of key from a BalanceData query
 pullBalance :: BA.BalanceDataMap -> String -> Maybe (Double, Double)
@@ -112,6 +118,15 @@ pullBalance bdm key = do
 
 getBalanceOf :: String -> IO Double
 getBalanceOf symbol = do
+  bd <- makeRequest True "GET" "/v1/balances/" []
+  let
+    sortedbd = BA.sortBalanceData bd
+    maybeBalance = pullBalance sortedbd symbol
+  case maybeBalance of
+    Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
+    Just b  -> return . fst $ b
+
+{-
   kp <- readKeys
   request <- balanceRequest kp
   putStrLn $ "querying: " ++ show request
@@ -125,10 +140,30 @@ getBalanceOf symbol = do
       ret = case maybeBalance of
         Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
         Just b  -> return . fst $ b
+-}
+
+
+getOrderInfo :: Int -> IO BA.OrderInfo
+getOrderInfo orderId = do
+  x <- makeRequest True "GET" "/v1/trade_view" [(BS.fromString $ show orderId, BS.fromString $ show orderId)]
+  return x
 
 
 
 
+
+-- tickerRequest makes a ticker request for the given pair
+tickerRequest :: IO Request
+tickerRequest = generateRequest "GET" "/v1/ticker/" tickerRequestQuery
+
+depthRequest :: IO Request
+depthRequest = generateRequest "GET" "/v1/depth/" depthRequestQuery
+
+txRequest :: IO Request
+txRequest = generateRequest "GET" "/v1/orders/" txRequestQuery
+
+tradeListRequest :: KeyPair -> IO Request
+tradeListRequest kp = generatePrivRequest kp "GET" "/v1/trade_list/" tradeListRequestQuery
 
 
 
@@ -144,14 +179,12 @@ printResponse response = do
 
 testBalance :: IO ()
 testBalance = do
-  kp <- readKeys
-  request <- balanceRequest kp
-  print request
-  response <- httpLBS request
-  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
-  case x of
-    Left v -> print v
-    Right (BA.BilaxyResponse _ bd) -> print $ pullBalance (BA.sortBalanceData bd) "TT"
+  --kp <- readKeys
+  --request <-  balanceRequest kp
+  --response <- httpLBS request
+  --printResponse response
+  b <- getBalanceOf "TT"
+  print b
 
 testDepth :: IO ()
 testDepth = do

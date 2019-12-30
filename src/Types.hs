@@ -55,7 +55,10 @@ class (Token t, Exchange e) => ExchangeToken t e where
   -- TODO try something like getBalance :: Proxy t -> e -> IO Integer so that the exchange can do stuff like cache, except need to use mutabel vars...
 
 
-data OrderStatus = OrderStatus {}
+data OrderState = Pending | PartiallyExecuted | Executed | Missing
+data OrderStatus = OrderStatus {
+  orderState :: OrderState
+}
 
 -- maybe simpler way to do type level exchange pairs
 class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where

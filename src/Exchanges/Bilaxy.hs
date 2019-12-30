@@ -26,8 +26,11 @@ instance ExchangeToken USDT Bilaxy where
   getBalance p = getBalanceHelper p sixDecimals
 
 instance ExchangePair TT USDT Bilaxy where
-  data Order TT USDT = OrderTTUSDT ()
+  data Order TT USDT = OrderTTUSDT {
+    id :: Integer
+  }
   pairID _ = 151
-  getStatus _ = undefined
+  getStatus :: Order TT USDT -> IO OrderStatus
+  getStatus order = undefined
   canCancel _ = True
   cancel _ = undefined

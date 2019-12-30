@@ -5,6 +5,7 @@ module Exchanges.BilaxyAeson (
   sortBalanceData,
   MarketOrder(..),
   MarketDepth(..),
+  OrderInfo(..)
 )
 where
 
@@ -65,3 +66,11 @@ data MarketDepth = MarketDepth {
 } deriving (Generic, Show)
 
 instance FromJSON MarketDepth
+
+
+
+data OrderInfo = OrderInfo {
+  id :: Int
+} deriving (Generic, Show)
+
+instance FromJSON OrderInfo
