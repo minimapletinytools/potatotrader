@@ -18,27 +18,27 @@ module Eth (
   testTransaction
 ) where
 
-import Arbitrage
+import           Types
 
-import System.IO
-import Control.Monad (mapM_)
-import Data.Function ((&))
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Builder as BS
-import qualified Data.ByteArray.HexString as BS
-import qualified Data.Solidity.Prim.Address as WEB3
-import qualified Network.Ethereum.Contract.TH as WEB3
-import qualified Crypto.Ethereum as WEB3
-import qualified Network.Ethereum.Web3 as WEB3
-import qualified Network.Ethereum.Account as WEB3
-import Lens.Micro ((.~))
+import           Control.Monad                     (mapM_)
+import qualified Crypto.Ethereum                   as WEB3
+import qualified Data.ByteArray.HexString          as BS
+import qualified Data.ByteString                   as BS
+import qualified Data.ByteString.Builder           as BS
+import           Data.Function                     ((&))
+import qualified Data.Solidity.Prim.Address        as WEB3
+import           Lens.Micro                        ((.~))
+import qualified Network.Ethereum.Account          as WEB3
 import qualified Network.Ethereum.Account.Internal as WEB3
-import qualified Network.Ethereum.Api.Provider as WEB3
-import qualified Network.Ethereum.Api.Types as WEB3 hiding (blockNumber)
-import qualified Network.Ethereum.Api.Eth as WEB3
-import qualified Network.JsonRpc.TinyClient as WEB3
+import qualified Network.Ethereum.Api.Eth          as WEB3
+import qualified Network.Ethereum.Api.Provider     as WEB3
+import qualified Network.Ethereum.Api.Types        as WEB3 hiding (blockNumber)
+import qualified Network.Ethereum.Contract.TH      as WEB3
+import qualified Network.Ethereum.Web3             as WEB3
+import qualified Network.JsonRpc.TinyClient        as WEB3
+import           System.IO
 
-import Debug.Trace (trace)
+import           Debug.Trace                       (trace)
 
 -- load abi
 [WEB3.abiFrom|uniswap.json|]
@@ -134,7 +134,7 @@ calcFee fee input_amount input_reserve output_reserve =
 --solvePrice ::
 
 -- | getUniEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
-getUniEthTokenBalances :: WEB3.Address -> WEB3.Web3 Liquidity
+getUniEthTokenBalances :: WEB3.Address -> WEB3.Web3 (Liquidity TT USDT)
 getUniEthTokenBalances addr = do
   tAddr <- WEB3.withAccount () $ do
     WEB3.withParam (WEB3.to .~ addr) tokenAddress
@@ -150,33 +150,33 @@ ethToTokenSwap account addr amount = do
   block <- WEB3.getBlockByNumber bn
   let time = toInteger $ WEB3.blockTimestamp block
   -- this trick is needed to solve for scoping issue on time variable
-  time & (\time -> (WEB3.withAccount account
+  time & (\time -> WEB3.withAccount account
     . WEB3.withParam (WEB3.to .~ addr)
     . WEB3.withParam (WEB3.value .~ (1000 :: WEB3.Ether)) $ do
-      ethToTokenSwapInput (fromInteger amount) (fromInteger ((time) + 2000))))
+      ethToTokenSwapInput (fromInteger amount) (fromInteger (time + 2000)))
 
 -- | getLiquidity returns (TT, token) liquidity in account
-getLiquidity :: WEB3.Address -> WEB3.Address -> WEB3.Web3 Liquidity
+getLiquidity :: WEB3.Address -> WEB3.Address -> WEB3.Web3 (Liquidity TT USDT)
 getLiquidity addr tAddr = do
-  bn <- WEB3.blockNumber >>= return . WEB3.BlockWithNumber
+  bn <- WEB3.BlockWithNumber <$> WEB3.blockNumber
   balance <- WEB3.getBalance addr bn
   WEB3.withAccount () . WEB3.withParam (WEB3.block .~ bn) $ do
     tBalance <- WEB3.withParam (WEB3.to .~ tAddr) $ do
       balanceOf addr
-    return (toInteger balance, toInteger tBalance)
+    return $ Liquidity (Amount $ toInteger balance) (Amount $ toInteger tBalance)
 
-getTTUSDTLiquidity :: WEB3.Address -> WEB3.Web3 Liquidity
+getTTUSDTLiquidity :: WEB3.Address -> WEB3.Web3 (Liquidity TT USDT)
 getTTUSDTLiquidity addr = getLiquidity addr ttUSDT
 
 prettyShowResult :: (a -> String) -> Either WEB3.Web3Error a -> String
-prettyShowResult _ (Left e) = "error: " ++ show e
+prettyShowResult _ (Left e)  = "error: " ++ show e
 prettyShowResult f (Right x) = f x
 
 testTransaction :: IO ()
 testTransaction = do
   account <- readKeys chainID
   res <- WEB3.runWeb3' (WEB3.HttpProvider providerURL) $ do
-    (tokens, eth) <- getUniEthTokenBalances uniTTUSDT
+    Liquidity tokens eth <- getUniEthTokenBalances uniTTUSDT
     return (tokens, eth)
     --receipt <- ethToTokenSwap account uniTTUSDT 1
     --return (receipt, tokens, eth)
@@ -200,11 +200,11 @@ getPrice = do
     WEB3.withAccount () $ do
       msg1 <- WEB3.withParam (WEB3.to .~ uniTTUSDT) $ do
         e <- getEthToTokenOutputPrice 1000049
-        return $ show $ (WEB3.fromWei e :: WEB3.Ether)
+        return $ show (WEB3.fromWei e :: WEB3.Ether)
       msg2 <- WEB3.withParam (WEB3.to .~ ttUSDT) $ do
         e <- balanceOf addr
         return $ show e
-      return $ [msg1,msg2]
+      return [msg1,msg2]
     {-
     let withAccount = WEB3.withAccount :: (WEB3.JsonRpc m) => WEB3.LocalKey -> WEB3.LocalKeyAccount m b -> m b
     withAccount account $ do
@@ -238,7 +238,7 @@ testmain = do
     myBalance <- WEB3.getBalance me WEB3.Latest
 
     -- Get half of balance
-    let halfBalance = WEB3.fromWei (myBalance)
+    let halfBalance = WEB3.fromWei myBalance
 
     -- Use default account
     WEB3.withAccount () $ do

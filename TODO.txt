@@ -52,3 +52,13 @@ exchange
 
 
 logging
+
+
+----------
+
+TODO
+
+-consider creating something like a monad for exchange operations
+1. this monad must be used in the IO monad
+2. this monad has a typed state for the exchange
+3. this monad can be used across exchange pairs of the same exchange

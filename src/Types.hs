@@ -1,51 +1,61 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MagicHash             #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE MultiWayIf            #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE QuasiQuotes           #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE GADTs   #-}
-{-# LANGUAGE InstanceSigs   #-}
--- {-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- {-# LANGUAGE UndecidableInstances   #-}
 
-module TokenTypes (
-  Liquidity (..),
-  Token (..),
-  Exchange (..),
-  ExchangeToken (..),
-  Network(..)
+module Types (
+  Liquidity(..),
+  Amount(..),
+  Token(..),
+  Exchange(..),
+  ExchangeToken(..),
+  ExchangePair(..),
+  Network(..),
+  OrderStatus,
+  Order,
+
+  TT(..),
+  ETH(..),
+  USDT(..),
+  ThunderCoreMain(..),
+  OnChain(..),
+  Bilaxy(..),
 ) where
 
-import Data.Proxy
-import Data.Solidity.Prim.Address (Address)
+import           Data.Proxy
+import           Data.Solidity.Prim.Address (Address)
 
-data Liquidity t1 t2 = Liquidity Integer Integer
+data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
+newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read)
 
 class Token t where
   tokenName :: Proxy t -> String
 
 class Exchange e where
   exchangeName :: Proxy e -> String
+  -- TODO something like this? But how do I reference this type in getBalance?
+  --data ExchangeCache :: *
 
 class Network n where
   networkName :: Proxy n -> String
   rpc :: Proxy n -> String
 
 class (Token t, Exchange e) => ExchangeToken t e where
+
+  -- TODO probably don't need this, it's encapsulated by getBalance
   -- symbol of token on the exchange
   symbol :: Proxy (t,e) -> String
-  symbol _ = "n/a"
+  symbol _ = tokenName (Proxy :: Proxy t)
+  -- TODO probably don't need this, it's encapsulated by getBalance
   -- multiply by this to normalize
   decimals :: Proxy (t,e) -> Integer
   decimals _ = 1
   -- get balance (normalized)
-  getBalance :: Proxy (t,e) -> IO Integer
+  getBalance :: Proxy (t,e) -> IO (Amount t)
+  -- TODO try something like getBalance :: Proxy t -> e -> IO Integer so that the exchange can do stuff like cache, except need to use mutabel vars...
+
+
+data OrderStatus = OrderStatus {}
 
 -- maybe simpler way to do type level exchange pairs
 class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
@@ -60,7 +70,58 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   -- returns 0x0 if not a dex
   dexAddr :: Proxy (ExchangePair t1 t2 e) -> Address
   dexAddr _ = "0x0"
-  
+  liquidity :: Proxy (ExchangePair t1 t2 e) -> IO (Liquidity t1 t2)
+  liquidity _ = do
+    b1 <- getBalance (Proxy :: Proxy (t1, e))
+    b2 <- getBalance (Proxy :: Proxy (t2, e))
+    return $ Liquidity b1 b2
+
+  data Order t1 t2 :: *
+  order :: Amount t1 -> Amount t2 -> IO (Order t1 t2)
+  getStatus :: Order t1 t2 -> IO OrderStatus
+  canCancel :: Order t1 t2 -> Bool -- or is this a method of OrderStatus?
+  cancel :: Order t1 t2 -> IO Bool
+
+
+
+
+
+
+
+-- TODO maybe move to a diff file
+-- tokens
+data TT
+data ETH
+data USDT
+
+instance Token TT where
+  tokenName _ = "TT"
+
+instance Token ETH where
+  tokenName _ = "ETH"
+
+instance Token USDT where
+  tokenName _ = "USDT"
+
+-- networks
+data ThunderCoreMain
+
+instance Network ThunderCoreMain where
+  networkName _ = "ThunderCore mainnet"
+  rpc _ = "https://mainnet-rpc.thundercore.com"
+
+-- exchanges
+data OnChain n = OnChain
+
+instance (Network n) => Exchange (OnChain n) where
+  exchangeName _ = networkName (Proxy :: Proxy n)
+
+data Bilaxy
+
+instance Exchange Bilaxy where
+  exchangeName _ = "Bilaxy"
+
+
 
 
 -- below is a WIP, lots of typing issues go away

@@ -1,26 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Bilaxy (
-  send
+module Exchanges.BilaxyHttp (
+  getBalanceOf
 )
 where
 
-import Arbitrage
+import           Arbitrage
 
-import qualified BilaxyAeson as BA
-import Data.Sort (sort)
-import qualified Data.Map as M
-import Data.Text.Encoding
-import System.IO
-import Data.Aeson
-import Network.HTTP.Simple
-import qualified Crypto.Hash.SHA1 as SHA1
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.ByteString.Builder as BSB
+import qualified Crypto.Hash.SHA1           as SHA1
+import           Data.Aeson
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Builder    as BSB
+import qualified Data.ByteString.Lazy       as LBS
 import qualified Data.ByteString.Lazy.Char8 as L8
-import Debug.Trace (trace)
+import qualified Data.Map                   as M
+import           Data.Sort                  (sort)
+import           Data.Text.Encoding
+import           Debug.Trace                (trace)
+import qualified Exchanges.BilaxyAeson      as BA
+import           Network.HTTP.Simple
+import           System.IO
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
@@ -110,12 +110,37 @@ pullBalance bdm key = do
 --getLiquidityPair :: (String, String) -> BA.BalanceDataMap -> Liquidity
 --getLiquidityPair keys bdm = fmap (fst . pullBalance $ bdm) keys
 
+getBalanceOf :: String -> IO Double
+getBalanceOf symbol = do
+  kp <- readKeys
+  request <- balanceRequest kp
+  putStrLn $ "querying: " ++ show request
+  response <- httpLBS request
+  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
+  case x of
+    Left v -> error $ "bilaxy query error: " ++ show v
+    Right (BA.BilaxyResponse _ bd) -> ret where
+      sortedbd = BA.sortBalanceData bd
+      maybeBalance = pullBalance sortedbd symbol
+      ret = case maybeBalance of
+        Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
+        Just b  -> return . fst $ b
+
+
+
+
+
+
+
+
+-- TODO delete stuff below
 printResponse :: Response L8.ByteString -> IO ()
 printResponse response = do
   putStrLn $ "The status code was: " ++
     show (getResponseStatusCode response)
   print $ getResponseHeader "Content-Type" response
   L8.putStrLn $ getResponseBody response
+
 
 testBalance :: IO ()
 testBalance = do
@@ -136,7 +161,7 @@ testDepth = do
   printResponse response
   let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse BA.MarketDepth)
   case x of
-    Left v -> print v
+    Left v                         -> print v
     Right (BA.BilaxyResponse _ md) -> print md
 
 send :: IO ()

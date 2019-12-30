@@ -1,8 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
-module BilaxyAeson (
+module Exchanges.BilaxyAeson (
   BilaxyResponse(..),
   BalanceData(..),
   BalanceDataMap(..),
@@ -12,18 +8,17 @@ module BilaxyAeson (
 )
 where
 
-import GHC.Generics
-import Data.Maybe
-import Data.Vector ((!))
-import qualified Data.Map as M
-import Data.Aeson
-import Data.Aeson.Types
-import           Data.Aeson.Types         ( parseMaybe, parseEither, Result(..) )
+import           Data.Aeson
+import           Data.Aeson.Types
+import qualified Data.Map         as M
+import           Data.Maybe
+import           Data.Vector      ((!))
+import           GHC.Generics
 
-import Debug.Trace (trace)
+import           Debug.Trace      (trace)
 
 data BilaxyResponse a = BilaxyResponse {
-  code :: Int
+  code     :: Int
   , brData :: a
 } deriving (Show)
 
@@ -34,10 +29,10 @@ instance (FromJSON a) => FromJSON (BilaxyResponse a) where
     return $ BilaxyResponse (read fCode) fData
 
 data BalanceData = BalanceData {
-  symbol :: Int
+  symbol    :: Int
   , balance :: Double
-  , name :: String
-  , frozen :: Double
+  , name    :: String
+  , frozen  :: Double
 } deriving (Generic, Show)
 
 type BalanceDataMap = M.Map String BalanceData
@@ -54,9 +49,9 @@ instance FromJSON BalanceData where
     return $ BalanceData fSymbol (read fBalance) fName (read fFrozen)
 
 data MarketOrder = MarketOrder {
-  price :: Double
+  price    :: Double
   , volume :: Double
-  , total :: Double
+  , total  :: Double
 } deriving (Generic, Show)
 
 instance FromJSON MarketOrder where
@@ -65,7 +60,7 @@ instance FromJSON MarketOrder where
     MarketOrder <$> (v ! 0) <*> (v ! 1) <*> (v ! 2)
 
 data MarketDepth = MarketDepth {
-  asks :: [MarketOrder]
+  asks   :: [MarketOrder]
   , bids :: [MarketOrder]
 } deriving (Generic, Show)
 

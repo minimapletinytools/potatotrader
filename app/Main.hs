@@ -1,12 +1,12 @@
 module Main where
 
-import qualified Bilaxy
-import qualified Eth
 import qualified ERC20
+import qualified Eth
+import qualified Exchanges.Bilaxy
 
 main :: IO ()
 --main = getPrice
---main = ERC20.testmain
+main = ERC20.testmain
 --main = sendPriv
-main = Bilaxy.send
+--main = Exchanges.Bilaxy.send
 --main = Eth.testTransaction
