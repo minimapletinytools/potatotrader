@@ -40,14 +40,27 @@ class Network n where
 class (Token t, Exchange e) => ExchangeToken t e where
   -- symbol of token on the exchange
   symbol :: Proxy (t,e) -> String
+  symbol _ = "n/a"
   -- multiply by this to normalize
-  decimals :: Proxy (t,e) -> Int
+  decimals :: Proxy (t,e) -> Integer
   decimals _ = 1
-  -- on-chain address if dex, 0x0 otherwise
-  ethAddr :: Proxy (t,e) -> Address
-  ethAddr _ = "0x0"
   -- get balance (normalized)
   getBalance :: Proxy (t,e) -> IO Integer
+
+-- maybe simpler way to do type level exchange pairs
+class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
+  pairName :: Proxy (ExchangePair t1 t2 e) -> String
+  pairName _ =
+    exchangeName (Proxy :: Proxy e) ++ " "
+    ++ tokenName (Proxy :: Proxy t1) ++ ":"
+    ++ tokenName (Proxy :: Proxy t2)
+  -- returns 0 if not needed
+  pairID :: Proxy (ExchangePair t1 t2 e) -> Int
+  pairID _ = 0
+  -- returns 0x0 if not a dex
+  dexAddr :: Proxy (ExchangePair t1 t2 e) -> Address
+  dexAddr _ = "0x0"
+  
 
 
 -- below is a WIP, lots of typing issues go away

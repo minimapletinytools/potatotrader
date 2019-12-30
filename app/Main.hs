@@ -8,5 +8,5 @@ main :: IO ()
 --main = getPrice
 --main = ERC20.testmain
 --main = sendPriv
---main = Bilaxy.send
-main = Eth.testTransaction
+main = Bilaxy.send
+--main = Eth.testTransaction
