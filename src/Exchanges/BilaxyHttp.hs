@@ -130,15 +130,27 @@ getBalanceOf symbol = do
     Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
     Just b  -> return . fst $ b
 
-getOrderInfo :: Int -> IO BA.OrderInfo
-getOrderInfo orderId = do
-  x <- makeRequest True "GET" "/v1/trade_view" [("id", BS.fromString $ show orderId)]
-  return x
+showBS :: (Show a) => a -> BS.ByteString
+showBS = BS.fromString . show
 
+-- TODO convert BA.OrderInfo into some common format..
+getOrderInfo :: Int -> IO BA.OrderInfo
+getOrderInfo orderId = makeRequest True "GET" "/v1/trade_view" [("id", showBS orderId)]
+
+-- TODO convert BA.OrderInfo into some common format..
 getOrderList :: Int -> IO [BA.OrderInfo]
-getOrderList pair = do
-  x <- makeRequest True "GET" "/v1/trade_list" [("symbol", BS.fromString $ show pair),("type", "1")]
-  return x
+getOrderList pair = makeRequest True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
+
+data OrderType = Buy | Sell
+instance Show OrderType where
+  show Buy  = "buy"
+  show Sell = "sell"
+
+postOrder :: Int -> Double -> Double -> OrderType -> IO Int
+postOrder pair amount price orderType = makeRequest True "POST" "/v1/trade"
+  [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
+
+
 
 -- tickerRequest makes a ticker request for the given pair
 tickerRequest :: IO Request
