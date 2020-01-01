@@ -60,6 +60,8 @@ dependencies:
 - sort
 - containers
 - vector
+- time
+- unix-time
 
 library:
   source-dirs: src

@@ -4,7 +4,10 @@
 module Exchanges.BilaxyHttp (
   getBalanceOf,
 
-  testBalance
+
+
+  testBalance,
+  send
 )
 where
 
@@ -20,6 +23,7 @@ import qualified Data.ByteString.UTF8       as BS
 import qualified Data.Map                   as M
 import           Data.Sort                  (sort)
 import           Data.Text.Encoding
+import           Data.UnixTime
 import           Debug.Trace                (trace)
 import qualified Exchanges.BilaxyAeson      as BA
 import           Network.HTTP.Simple
@@ -126,31 +130,15 @@ getBalanceOf symbol = do
     Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
     Just b  -> return . fst $ b
 
-{-
-  kp <- readKeys
-  request <- balanceRequest kp
-  putStrLn $ "querying: " ++ show request
-  response <- httpLBS request
-  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse [BA.BalanceData])
-  case x of
-    Left v -> error $ "bilaxy query error: " ++ show v
-    Right (BA.BilaxyResponse _ bd) -> ret where
-      sortedbd = BA.sortBalanceData bd
-      maybeBalance = pullBalance sortedbd symbol
-      ret = case maybeBalance of
-        Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
-        Just b  -> return . fst $ b
--}
-
-
 getOrderInfo :: Int -> IO BA.OrderInfo
 getOrderInfo orderId = do
-  x <- makeRequest True "GET" "/v1/trade_view" [(BS.fromString $ show orderId, BS.fromString $ show orderId)]
+  x <- makeRequest True "GET" "/v1/trade_view" [("id", BS.fromString $ show orderId)]
   return x
 
-
-
-
+getOrderList :: Int -> IO [BA.OrderInfo]
+getOrderList pair = do
+  x <- makeRequest True "GET" "/v1/trade_list" [("symbol", BS.fromString $ show pair),("type", "1")]
+  return x
 
 -- tickerRequest makes a ticker request for the given pair
 tickerRequest :: IO Request
@@ -179,10 +167,6 @@ printResponse response = do
 
 testBalance :: IO ()
 testBalance = do
-  --kp <- readKeys
-  --request <-  balanceRequest kp
-  --response <- httpLBS request
-  --printResponse response
   b <- getBalanceOf "TT"
   print b
 
@@ -199,11 +183,6 @@ testDepth = do
 
 send :: IO ()
 send = do
-  testDepth
-  --kp <- readKeys
-  --request <- tickerRequest
-  --request <- txRequest
-  --request <- tradeListRequest kp
-  --print request
-  --response <- httpLBS request
-  --printResponse response
+  x <- getOrderList 151
+  print x
+  --testDepth
