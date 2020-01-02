@@ -6,6 +6,7 @@ module Exchanges.BilaxyHttp (
 
 
 
+  testDepth,
   testBalance,
   send
 )
@@ -66,9 +67,6 @@ bilaxyTradingPairIds = [("TT/USDT","151")
 bilaxyGateway = "https://api.bilaxy.com"
 
 tickerRequestQuery=[("symbol","151")]
-depthRequestQuery=[("symbol","151")]
-txRequestQuery=[("symbol","151"),("size","10")]
-tradeListRequestQuery=[("since","1572566400"),("symbol","151"),("type","0")]
 
 -- | query sets the method, path and params of a Request
 query :: BS.ByteString -> BS.ByteString -> Params -> Request -> Request
@@ -101,10 +99,11 @@ makeRequest priv method path params = do
     else generateRequest method path params
   printf "querying (priv=%s):\n%s" (show priv) (show request)
   response <- httpLBS request
+  --putStrLn $ "response status code: " ++ show (getResponseStatusCode response)
   printResponse response
   let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
-    Left v  -> error $ "bilaxy query error: " ++ show v
+    Left v  -> error $ "bilaxy decode error: " ++ show v
     Right a -> return a
 
 makeStandardResponseRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
@@ -138,6 +137,8 @@ getBalanceOf symbol = do
     Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
     Just b  -> return . fst $ b
 
+
+
 showBS :: (Show a) => a -> BS.ByteString
 showBS = BS.fromString . show
 
@@ -148,6 +149,13 @@ getOrderInfo orderId = makeStandardResponseRequest True "GET" "/v1/trade_view" [
 -- TODO convert BA.OrderInfo into some common format..
 getOrderList :: Int -> IO [BA.OrderInfo]
 getOrderList pair = makeStandardResponseRequest True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
+
+-- | getDepth returns market depth
+getDepth :: Int -> IO BA.MarketDepth
+getDepth pair = makeStandardResponseRequest False "GET" "/v1/depth" [("symbol", showBS pair),("type", "1")]
+
+getRateLimit :: IO BA.RateLimit
+getRateLimit = makeRequest False "GET" "/rate_limits" []
 
 data OrderType = Buy | Sell
 instance Show OrderType where
@@ -175,20 +183,12 @@ cancelOrder oid = do
   return ()
 
 
+
+
+
 -- tickerRequest makes a ticker request for the given pair
 tickerRequest :: IO Request
 tickerRequest = generateRequest "GET" "/v1/ticker/" tickerRequestQuery
-
-depthRequest :: IO Request
-depthRequest = generateRequest "GET" "/v1/depth/" depthRequestQuery
-
-txRequest :: IO Request
-txRequest = generateRequest "GET" "/v1/orders/" txRequestQuery
-
-tradeListRequest :: KeyPair -> IO Request
-tradeListRequest kp = generatePrivRequest kp "GET" "/v1/trade_list/" tradeListRequestQuery
-
-
 
 
 -- TODO delete stuff below
@@ -207,17 +207,17 @@ testBalance = do
 
 testDepth :: IO ()
 testDepth = do
-  request <- depthRequest
-  print request
-  response <- httpLBS request
-  printResponse response
-  let x = eitherDecode $ getResponseBody response :: Either String (BA.BilaxyResponse BA.MarketDepth)
-  case x of
-    Left v                         -> print v
-    Right (BA.BilaxyResponse _ md) -> print md
+  --depth <- getDepth 151
+  --print depth
+  print =<< getRateLimit
 
 send :: IO ()
 send = do
+  print "getting trades"
+
+
+testOrder :: IO ()
+testOrder = do
   print "making order"
   -- sells 1000 TT for 0.008 USDT each
   oid <- postOrder 151 1000 0.008 Sell

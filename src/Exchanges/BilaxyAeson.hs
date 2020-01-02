@@ -6,7 +6,8 @@ module Exchanges.BilaxyAeson (
   MarketOrder(..),
   MarketDepth(..),
   OrderInfo(..),
-  TradeExecResult(..)
+  TradeExecResult(..),
+  RateLimit(..)
 )
 where
 
@@ -139,3 +140,11 @@ instance FromJSON TradeExecResult where
     fResultCode :: Int <- v .: "resultCode"
     fId :: Int <- v .: "id"
     return $ TradeExecResult fResultCode fId
+
+-- TODO parse interval into units of time
+data RateLimit = RateLimit {
+  interval    :: String
+  , max_times :: Int
+} deriving (Show, Generic)
+
+instance FromJSON RateLimit
