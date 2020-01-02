@@ -5,19 +5,34 @@ module Exchanges.BilaxyAeson (
   sortBalanceData,
   MarketOrder(..),
   MarketDepth(..),
-  OrderInfo(..)
+  OrderInfo(..),
+  TradeExecResult(..)
 )
 where
 
+import           Control.Monad    (foldM)
 import           Data.Aeson
 import           Data.Aeson.Types
 import qualified Data.Map         as M
 import           Data.Maybe
+import           Data.Text        (Text)
 import           Data.Time.Clock
 import           Data.Vector      ((!))
+import           Debug.Trace      (trace)
 import           GHC.Generics
 
-import           Debug.Trace      (trace)
+lookupMany :: (FromJSON a) => Object -> [Text] -> Parser a
+lookupMany v x = do
+  let
+    foldfn :: (FromJSON a) => Maybe a -> Text -> Parser (Maybe a)
+    foldfn b s = case b of
+      Nothing -> v .:? s
+      found   -> return found
+  found <- foldM foldfn Nothing x
+  case found of
+    Nothing -> error $ "found none of: " ++ show x
+    Just r  -> return r
+
 
 data BilaxyResponse a = BilaxyResponse {
   code     :: Int
@@ -77,14 +92,13 @@ instance FromJSON OrderStatus where
     4 -> Cancelled
     _ -> error $ "unknown status " ++ show n
 
-
 data OrderInfo = OrderInfo {
   oi_datetime      :: ()
   , oi_amount      :: Double
   , oi_price       :: Double
   , oi_count       :: Double
   , oi_symbol      :: Int
-  , oi_pairId      :: Int
+  , oi_id          :: Int
   , oi_left_amount :: Double
   , oi_left_count  :: Double
   , oi_status      :: OrderStatus
@@ -101,7 +115,7 @@ instance FromJSON OrderInfo where
     fLeft_amount :: String <- v .: "left_amount"
     fLeft_count :: String <- v .: "left_count"
     fStatus :: OrderStatus <- v .: "status"
-    fSymbol :: Int <- v .: "symbo" -- typo in API
+    fSymbol :: Int <- lookupMany v ["symbo", "symbol"] -- typo in API
     return $ OrderInfo {
       --oi_datetime = fDatetime
       oi_datetime = ()
@@ -109,8 +123,19 @@ instance FromJSON OrderInfo where
       , oi_price = read fPrice
       , oi_count = read fCount
       , oi_symbol = fSymbol
-      , oi_pairId = fId
+      , oi_id = fId
       , oi_left_amount = read fLeft_amount
       , oi_left_count = read fLeft_count
       , oi_status = fStatus
     }
+
+data TradeExecResult = TradeExecResult {
+  ter_resultCode :: Int
+  , ter_id       :: Int
+} deriving (Show)
+
+instance FromJSON TradeExecResult where
+  parseJSON = withObject "TradeExecResult" $ \v -> do
+    fResultCode :: Int <- v .: "resultCode"
+    fId :: Int <- v .: "id"
+    return $ TradeExecResult fResultCode fId

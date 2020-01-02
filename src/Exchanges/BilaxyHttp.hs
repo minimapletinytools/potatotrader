@@ -13,6 +13,7 @@ where
 
 import           Arbitrage
 
+import           Control.Monad              (mapM_)
 import qualified Crypto.Hash.SHA1           as SHA1
 import           Data.Aeson
 import qualified Data.ByteString            as BS
@@ -91,6 +92,7 @@ generatePrivRequest kp method path q = do
   r <- parseRequest bilaxyGateway
   return $ query method path q2 r
 
+
 makeRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
 makeRequest priv method path params = do
   kp <- readKeys
@@ -100,12 +102,18 @@ makeRequest priv method path params = do
   printf "querying (priv=%s):\n%s" (show priv) (show request)
   response <- httpLBS request
   printResponse response
-  let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String (BA.BilaxyResponse a)
+  let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
     Left v  -> error $ "bilaxy query error: " ++ show v
-    Right (BA.BilaxyResponse code a) -> case code of
-      200 -> return a
-      _   -> error $ "bad return code: " ++ show code
+    Right a -> return a
+
+makeStandardResponseRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
+makeStandardResponseRequest priv method path params = do
+  BA.BilaxyResponse code a <- makeRequest priv method path params
+  case code of
+    200 -> return a
+    _   -> error $ "bad return code: " ++ show code
+
 
 balanceRequest :: KeyPair -> IO Request
 balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" []
@@ -122,7 +130,7 @@ pullBalance bdm key = do
 
 getBalanceOf :: String -> IO Double
 getBalanceOf symbol = do
-  bd <- makeRequest True "GET" "/v1/balances/" []
+  bd <- makeStandardResponseRequest True "GET" "/v1/balances/" []
   let
     sortedbd = BA.sortBalanceData bd
     maybeBalance = pullBalance sortedbd symbol
@@ -135,11 +143,11 @@ showBS = BS.fromString . show
 
 -- TODO convert BA.OrderInfo into some common format..
 getOrderInfo :: Int -> IO BA.OrderInfo
-getOrderInfo orderId = makeRequest True "GET" "/v1/trade_view" [("id", showBS orderId)]
+getOrderInfo orderId = makeStandardResponseRequest True "GET" "/v1/trade_view" [("id", showBS orderId)]
 
 -- TODO convert BA.OrderInfo into some common format..
 getOrderList :: Int -> IO [BA.OrderInfo]
-getOrderList pair = makeRequest True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
+getOrderList pair = makeStandardResponseRequest True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
 
 data OrderType = Buy | Sell
 instance Show OrderType where
@@ -147,9 +155,16 @@ instance Show OrderType where
   show Sell = "sell"
 
 postOrder :: Int -> Double -> Double -> OrderType -> IO Int
-postOrder pair amount price orderType = makeRequest True "POST" "/v1/trade"
-  [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
+postOrder pair amount price orderType = do
+  BA.TradeExecResult code oid <- makeRequest True "POST" "/v1/trade"
+    [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
+  return oid
 
+-- not sure what happens when you try and cancel and invalid order
+cancelOrder :: Int -> IO ()
+cancelOrder oid = do
+  BA.BilaxyResponse code (rid :: Int) <- makeRequest True "POST" "/v1/cancel_trade" [("id", showBS oid)]
+  return ()
 
 
 -- tickerRequest makes a ticker request for the given pair
@@ -195,6 +210,15 @@ testDepth = do
 
 send :: IO ()
 send = do
+  print "making order"
+  oid <- postOrder 151 1000 0.008 Sell
+  print oid
+  print "order status"
+  order <- getOrderInfo oid
+  print order
+  print "getting orders:"
   x <- getOrderList 151
   print x
+  print "cancel all orders"
+  mapM_ (cancelOrder . BA.oi_id) x
   --testDepth
