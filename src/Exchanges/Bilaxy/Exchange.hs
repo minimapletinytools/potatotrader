@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
-module Exchanges.Bilaxy (
+module Exchanges.Bilaxy.Exchange (
 
 ) where
 
 import           Data.Proxy
-import           Exchanges.BilaxyHttp
+import           Exchanges.Bilaxy.Query
 import           Types
 
 eighteenDecimals :: Integer

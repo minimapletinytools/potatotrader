@@ -1,4 +1,4 @@
-module Exchanges.BilaxyAeson (
+module Exchanges.Bilaxy.Aeson (
   BilaxyResponse(..),
   BalanceData(..),
   BalanceDataMap(..),

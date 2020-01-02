@@ -62,6 +62,8 @@ dependencies:
 - vector
 - time
 - unix-time
+- tasty
+- HUnit
 
 library:
   source-dirs: src

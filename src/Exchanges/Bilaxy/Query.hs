@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Exchanges.BilaxyHttp (
+module Exchanges.Bilaxy.Query (
   getBalanceOf,
 
 
@@ -11,8 +11,6 @@ module Exchanges.BilaxyHttp (
   send
 )
 where
-
-import           Arbitrage
 
 import           Control.Monad              (mapM_)
 import qualified Crypto.Hash.SHA1           as SHA1
@@ -27,7 +25,7 @@ import           Data.Sort                  (sort)
 import           Data.Text.Encoding
 import           Data.UnixTime
 import           Debug.Trace                (trace)
-import qualified Exchanges.BilaxyAeson      as BA
+import qualified Exchanges.Bilaxy.Aeson     as BA
 import           Network.HTTP.Simple
 import           System.IO
 import           Text.Printf
