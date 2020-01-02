@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Exchanges (
+module Exchanges.Chain.Exchange (
 ) where
 
 import           Data.Proxy

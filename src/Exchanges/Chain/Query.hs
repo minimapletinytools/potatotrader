@@ -11,7 +11,7 @@
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Eth (
+module Exchanges.Chain.Query (
   getPrice,
   testmain,
   paramsToString,
