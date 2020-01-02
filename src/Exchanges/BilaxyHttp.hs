@@ -154,13 +154,21 @@ instance Show OrderType where
   show Buy  = "buy"
   show Sell = "sell"
 
+-- amount is in units of first token
+-- price is in units of second token
+-- e.g. TT/USDT
+-- amount is TT to be bought/sold and price is price per TT in USDT
+-- TODO seems like you can't make a Buy order for too low a price or you'll get:
+-- {"minAmount":1.0,"resultCode":-3}
+-- in any case should try and catch errors and return -1 if order fails
 postOrder :: Int -> Double -> Double -> OrderType -> IO Int
 postOrder pair amount price orderType = do
   BA.TradeExecResult code oid <- makeRequest True "POST" "/v1/trade"
     [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
   return oid
 
--- not sure what happens when you try and cancel and invalid order
+-- TODO if order id does not exist returns {"code":"401","data":null}
+-- which causes parser to throw an error
 cancelOrder :: Int -> IO ()
 cancelOrder oid = do
   BA.BilaxyResponse code (rid :: Int) <- makeRequest True "POST" "/v1/cancel_trade" [("id", showBS oid)]
@@ -211,7 +219,10 @@ testDepth = do
 send :: IO ()
 send = do
   print "making order"
+  -- sells 1000 TT for 0.008 USDT each
   oid <- postOrder 151 1000 0.008 Sell
+  -- buys 2 TT for 0.00001 USDT each
+  --oid <- postOrder 151 1000 0.0071 Buy
   print oid
   print "order status"
   order <- getOrderInfo oid
@@ -219,6 +230,6 @@ send = do
   print "getting orders:"
   x <- getOrderList 151
   print x
-  print "cancel all orders"
-  mapM_ (cancelOrder . BA.oi_id) x
+  --print "cancel all orders"
+  --mapM_ (cancelOrder . BA.oi_id) x
   --testDepth
