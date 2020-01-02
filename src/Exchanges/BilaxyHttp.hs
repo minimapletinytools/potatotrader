@@ -59,14 +59,8 @@ signParams (pub, sec) params = final
     joinParams :: Params -> BS.ByteString
     joinParams = foldl1 (\x y -> x <> "&" <> y) . map (\(x,y)-> x <> "=" <> y)
 
-bilaxyTradingPairIds :: [(String, BS.ByteString)]
-bilaxyTradingPairIds = [("TT/USDT","151")
-                        , ("BIA/USDT","167")
-                        , ("ETH/USDT","79")]
-
-bilaxyGateway = "https://api.bilaxy.com"
-
-tickerRequestQuery=[("symbol","151")]
+oldGateway = "https://api.bilaxy.com"
+newGateway = "https://newapi.bilaxy.com"
 
 -- | query sets the method, path and params of a Request
 query :: BS.ByteString -> BS.ByteString -> Params -> Request -> Request
@@ -78,25 +72,25 @@ query method path query =
     toQuery = map (\(x,y) -> (x, Just y))
 
 -- | generateRequest generates a open Bilaxy API request with given method, path and params
-generateRequest :: BS.ByteString -> BS.ByteString -> Params -> IO Request
-generateRequest method path q = do
-  r <- parseRequest bilaxyGateway
+generateRequest :: String -> BS.ByteString -> BS.ByteString -> Params -> IO Request
+generateRequest gateway method path q = do
+  r <- parseRequest gateway
   return $ query method path q r
 
 -- | generatePrivRequest generates a private Bilaxy API request with given keypair, method, path, and params
-generatePrivRequest :: KeyPair -> BS.ByteString -> BS.ByteString -> Params -> IO Request
-generatePrivRequest kp method path q = do
+generatePrivRequest :: String -> KeyPair -> BS.ByteString -> BS.ByteString -> Params -> IO Request
+generatePrivRequest gateway kp method path q = do
   let q2 = signParams kp q
-  r <- parseRequest bilaxyGateway
+  r <- parseRequest gateway
   return $ query method path q2 r
 
-
-makeRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
-makeRequest priv method path params = do
+-- | makeRequest makes a request and converts JSON return value into a haskell object
+makeRequest :: (FromJSON a) => String -> Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
+makeRequest gateway priv method path params = do
   kp <- readKeys
   request <- if priv
-    then generatePrivRequest kp method path params
-    else generateRequest method path params
+    then generatePrivRequest gateway kp method path params
+    else generateRequest gateway method path params
   printf "querying (priv=%s):\n%s" (show priv) (show request)
   response <- httpLBS request
   --putStrLn $ "response status code: " ++ show (getResponseStatusCode response)
@@ -106,16 +100,17 @@ makeRequest priv method path params = do
     Left v  -> error $ "bilaxy decode error: " ++ show v
     Right a -> return a
 
-makeStandardResponseRequest :: (FromJSON a) => Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
-makeStandardResponseRequest priv method path params = do
-  BA.BilaxyResponse code a <- makeRequest priv method path params
+-- | makeStandardResponseRequest calls makeRequest assuming the return type is wrapped in BA.BilaxyResponse
+makeStandardResponseRequest :: (FromJSON a) => String -> Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
+makeStandardResponseRequest gateway priv method path params = do
+  BA.BilaxyResponse code a <- makeRequest gateway priv method path params
   case code of
     200 -> return a
     _   -> error $ "bad return code: " ++ show code
 
 
 balanceRequest :: KeyPair -> IO Request
-balanceRequest kp = generatePrivRequest kp "GET" "/v1/balances/" []
+balanceRequest kp = generatePrivRequest oldGateway kp "GET" "/v1/balances/" []
 
 -- pullBalance returns (balance, frozen) of key from a BalanceData query
 pullBalance :: BA.BalanceDataMap -> String -> Maybe (Double, Double)
@@ -129,7 +124,7 @@ pullBalance bdm key = do
 
 getBalanceOf :: String -> IO Double
 getBalanceOf symbol = do
-  bd <- makeStandardResponseRequest True "GET" "/v1/balances/" []
+  bd <- makeStandardResponseRequest oldGateway True "GET" "/v1/balances/" []
   let
     sortedbd = BA.sortBalanceData bd
     maybeBalance = pullBalance sortedbd symbol
@@ -144,18 +139,20 @@ showBS = BS.fromString . show
 
 -- TODO convert BA.OrderInfo into some common format..
 getOrderInfo :: Int -> IO BA.OrderInfo
-getOrderInfo orderId = makeStandardResponseRequest True "GET" "/v1/trade_view" [("id", showBS orderId)]
+getOrderInfo orderId = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_view" [("id", showBS orderId)]
 
 -- TODO convert BA.OrderInfo into some common format..
 getOrderList :: Int -> IO [BA.OrderInfo]
-getOrderList pair = makeStandardResponseRequest True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
+getOrderList pair = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
 
 -- | getDepth returns market depth
 getDepth :: Int -> IO BA.MarketDepth
-getDepth pair = makeStandardResponseRequest False "GET" "/v1/depth" [("symbol", showBS pair),("type", "1")]
+getDepth pair = makeStandardResponseRequest oldGateway False "GET" "/v1/depth" [("symbol", showBS pair),("type", "1")]
 
 getRateLimit :: IO BA.RateLimit
-getRateLimit = makeRequest False "GET" "/rate_limits" []
+getRateLimit = do
+  [r] <- makeRequest newGateway False "GET" "/rate_limits" []
+  return r
 
 data OrderType = Buy | Sell
 instance Show OrderType where
@@ -171,7 +168,7 @@ instance Show OrderType where
 -- in any case should try and catch errors and return -1 if order fails
 postOrder :: Int -> Double -> Double -> OrderType -> IO Int
 postOrder pair amount price orderType = do
-  BA.TradeExecResult code oid <- makeRequest True "POST" "/v1/trade"
+  BA.TradeExecResult code oid <- makeRequest oldGateway True "POST" "/v1/trade"
     [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
   return oid
 
@@ -179,17 +176,8 @@ postOrder pair amount price orderType = do
 -- which causes parser to throw an error
 cancelOrder :: Int -> IO ()
 cancelOrder oid = do
-  BA.BilaxyResponse code (rid :: Int) <- makeRequest True "POST" "/v1/cancel_trade" [("id", showBS oid)]
+  BA.BilaxyResponse code (rid :: Int) <- makeRequest oldGateway True "POST" "/v1/cancel_trade" [("id", showBS oid)]
   return ()
-
-
-
-
-
--- tickerRequest makes a ticker request for the given pair
-tickerRequest :: IO Request
-tickerRequest = generateRequest "GET" "/v1/ticker/" tickerRequestQuery
-
 
 -- TODO delete stuff below
 printResponse :: Response L8.ByteString -> IO ()
@@ -209,7 +197,7 @@ testDepth :: IO ()
 testDepth = do
   --depth <- getDepth 151
   --print depth
-  print =<< getRateLimit
+  getRateLimit >>= print
 
 send :: IO ()
 send = do
