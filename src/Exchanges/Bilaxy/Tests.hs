@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 module Exchanges.Bilaxy.Tests (
   tests
 ) where
@@ -24,9 +21,9 @@ testPrivate = TestCase $ do
   print r -- not best way to force r but whatever
 
 tests :: IO ()
-tests = hspec $ do
+tests = hspec $
   describe "Bilaxy" $ do
-    describe "Public API" $ do
+    describe "Public API" $
       fromHUnitTest testPublic
-    describe "Private API" $ do
+    describe "Private API" $
       fromHUnitTest testPrivate

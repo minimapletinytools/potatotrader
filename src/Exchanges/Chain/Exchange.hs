@@ -5,6 +5,10 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Exchanges.Chain.Exchange (
+  ThunderCoreMain(..),
+  EthereumMain(..),
+
+  OnChain(..)
 ) where
 
 import           Data.Proxy
@@ -38,13 +42,13 @@ instance (Network n) => Exchange (OnChain n) where
 -- Token Exchanges
 instance (Exchange (OnChain n), Network n) => ExchangeToken TT (OnChain n) where
   decimals _ = eighteenDecimals
-  getBalance _ = Q.getBalance (rpc p) >>= return . Amount where
+  getBalance _ = Amount <$> Q.getBalance (rpc p) where
     p = Proxy :: Proxy n
 
 ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
 instance (Exchange (OnChain n), Network n) => ExchangeToken USDT (OnChain n) where
   decimals _ = eighteenDecimals
-  getBalance _ = Q.getTokenBalance (rpc p) ttUSDT >>= return . Amount where
+  getBalance _ = Amount <$> Q.getTokenBalance (rpc p) ttUSDT where
     p = Proxy :: Proxy n
 
 
