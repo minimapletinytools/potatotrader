@@ -6,9 +6,11 @@ module Exchanges.Bilaxy.Aeson (
   sortBalanceData,
   MarketOrder(..),
   MarketDepth(..),
+  OrderStatus(..),
+  toOrderState,
   OrderInfo(..),
   TradeExecResult(..),
-  RateLimit(..)
+  RateLimit(..),
 )
 where
 
@@ -22,6 +24,8 @@ import           Data.Time.Clock
 import           Data.Vector      ((!))
 import           Debug.Trace      (trace)
 import           GHC.Generics
+
+import qualified Types            as T
 
 lookupMany :: (FromJSON a) => Object -> [Text] -> Parser a
 lookupMany v x = do
@@ -113,6 +117,12 @@ instance FromJSON OrderStatus where
     3 -> TradedCompletely
     4 -> Cancelled
     _ -> error $ "unknown status " ++ show n
+
+toOrderState :: OrderStatus -> T.OrderState
+toOrderState NotTradedYet     = T.Pending
+toOrderState TradedPartly     = T.PartiallyExecuted
+toOrderState TradedCompletely = T.Executed
+toOrderState Cancelled        = T.Cancelled
 
 data OrderInfo = OrderInfo {
   oi_datetime      :: ()

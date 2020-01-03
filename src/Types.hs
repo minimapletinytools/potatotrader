@@ -1,17 +1,20 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE TypeFamilies        #-}
--- {-# LANGUAGE UndecidableInstances   #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Types (
-  Liquidity(..),
   Amount(..),
+  Liquidity(..),
+  OrderType(..),
+
   Token(..),
   Exchange(..),
   ExchangeToken(..),
   ExchangePair(..),
   Network(..),
-  OrderStatus,
+  OrderState(..),
+  OrderStatus(..),
   Order,
 
   TT(..),
@@ -22,16 +25,20 @@ module Types (
 import           Data.Proxy
 import           Data.Solidity.Prim.Address (Address)
 
+newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real, Integral)
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
-newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read)
+data OrderType = Buy | Sell deriving (Show)
+
 
 class Token t where
   tokenName :: Proxy t -> String
 
 class Exchange e where
   exchangeName :: Proxy e -> String
-  -- TODO something like this? But how do I reference this type in getBalance?
-  --data ExchangeCache :: *
+  -- TODO something like this? However, we either need to use mutable cache (doable since everything we need it for is IO) or have all types return the cache as well
+  -- data ExchangeCache :: *
+  -- TODO generalize account access to the exchange
+  -- data ExchangeAccount e :: *
 
 class Network n where
   networkName :: Proxy n -> String
@@ -39,7 +46,6 @@ class Network n where
   chainID :: Proxy n -> Int
 
 class (Token t, Exchange e) => ExchangeToken t e where
-
   -- TODO probably don't need this, it's encapsulated by getBalance
   -- symbol of token on the exchange
   symbol :: Proxy (t,e) -> String
@@ -50,10 +56,9 @@ class (Token t, Exchange e) => ExchangeToken t e where
   decimals _ = 1
   -- get balance (normalized)
   getBalance :: Proxy (t,e) -> IO (Amount t)
-  -- TODO try something like getBalance :: Proxy t -> e -> IO Integer so that the exchange can do stuff like cache, except need to use mutabel vars...
 
 
-data OrderState = Pending | PartiallyExecuted | Executed | Missing
+data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Show)
 data OrderStatus = OrderStatus {
   orderState :: OrderState
 }
@@ -72,6 +77,8 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   -- returns 0x0 if not a dex
   dexAddr :: Proxy (t1,t2,e) -> Address
   dexAddr _ = "0x0"
+  -- | liquidity returns your respective balance in the two tokens
+  -- TODO is this the right name for it?
   liquidity :: Proxy (t1,t2,e) -> IO (Liquidity t1 t2)
   liquidity _ = do
     b1 <- getBalance (Proxy :: Proxy (t1, e))
@@ -79,6 +86,7 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
     return $ Liquidity b1 b2
 
   data Order t1 t2 :: *
+  -- TODO buy/sell (maybe split into two funcs?)
   order :: Amount t1 -> Amount t2 -> IO (Order t1 t2)
   getStatus :: Order t1 t2 -> IO OrderStatus
   canCancel :: Order t1 t2 -> Bool -- or is this a method of OrderStatus?

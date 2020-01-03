@@ -39,7 +39,7 @@ import           Network.HTTP.Simple
 import           System.IO
 import           System.IO.Error
 import           Text.Printf
-
+import qualified Types                      as T
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
@@ -165,11 +165,6 @@ getRateLimit = do
   [r] <- makeRequest newGateway False "GET" "/rate_limits" []
   return r
 
-data OrderType = Buy | Sell
-instance Show OrderType where
-  show Buy  = "buy"
-  show Sell = "sell"
-
 -- amount is in units of first token
 -- price is in units of second token
 -- e.g. TT/USDT
@@ -177,10 +172,14 @@ instance Show OrderType where
 -- TODO seems like you can't make a Buy order for too low a price or you'll get:
 -- {"minAmount":1.0,"resultCode":-3}
 -- in any case should try and catch errors and return -1 if order fails
-postOrder :: Int -> Double -> Double -> OrderType -> IO Int
+postOrder :: Int -> Double -> Double -> T.OrderType -> IO Int
 postOrder pair amount price orderType = do
+  let
+    ot = case orderType of
+      T.Buy  -> "buy"
+      T.Sell -> "sell"
   BA.TradeExecResult code oid <- makeRequest oldGateway True "POST" "/v1/trade"
-    [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", showBS orderType)]
+    [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", ot)]
   return oid
 
 -- TODO if order id does not exist returns {"code":"401","data":null}
@@ -219,7 +218,7 @@ testOrder :: IO ()
 testOrder = do
   print "making order"
   -- sells 1000 TT for 0.008 USDT each
-  oid <- postOrder 151 1000 0.008 Sell
+  oid <- postOrder 151 1000 0.008 T.Sell
   -- buys 2 TT for 0.00001 USDT each
   --oid <- postOrder 151 1000 0.0071 Buy
   print oid
