@@ -16,14 +16,7 @@ module Exchanges.Chain.Query (
   getTokenBalance,
   getBalance,
   txEthToTokenSwap,
-  getTransactionByHash,
-
-
-
-  getPrice,
-  testmain,
-  paramsToString,
-  testTransaction
+  getTransactionByHash
 ) where
 
 import           Types                             hiding (chainId, getBalance)
@@ -152,6 +145,14 @@ txEthToTokenSwap url cid uniAddr amountEth minTokens = do
 
 
 
+
+
+
+
+
+-- TODO delete everything below
+
+
 providerURL = "https://mainnet-rpc.thundercore.com"
 --providerURL = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
 chainId = 108
@@ -191,13 +192,6 @@ calcFee fee input_amount input_reserve output_reserve =
 
 --solvePrice ::
 
--- | getUniEthTokenBalances is an operation that takes an exchange address and returns (eth, token) balances
-getUniEthTokenBalances :: Address -> Web3 (Liquidity TT USDT)
-getUniEthTokenBalances addr = do
-  tAddr <- withAccount () $ do
-    withParam (to .~ addr) tokenAddress
-  getLiquidity addr tAddr
-
 -- | ethToTokenSwap returns a WEB3 operation to swap tokens at a given exchange
 -- calls the following function:
 -- # @return Amount of Tokens bought.
@@ -213,18 +207,6 @@ ethToTokenSwap account addr amount = do
     . withParam (value .~ (1000 :: Ether)) $ do
       ethToTokenSwapInput (fromInteger amount) (fromInteger (time + 2000)))
 
--- | getLiquidity returns (TT, token) liquidity in account
-getLiquidity :: Address -> Address -> Web3 (Liquidity TT USDT)
-getLiquidity addr tAddr = do
-  bn <- BlockWithNumber <$> WEB3.blockNumber
-  balance <- WEB3.getBalance addr bn
-  withAccount () . withParam (block .~ bn) $ do
-    tBalance <- withParam (to .~ tAddr) $ do
-      balanceOf addr
-    return $ Liquidity (Amount $ toInteger balance) (Amount $ toInteger tBalance)
-
-getTTUSDTLiquidity :: Address -> Web3 (Liquidity TT USDT)
-getTTUSDTLiquidity addr = getLiquidity addr ttUSDT
 
 prettyShowResult :: (a -> String) -> Either Web3Error a -> String
 prettyShowResult _ (Left e)  = "error: " ++ show e
@@ -234,11 +216,10 @@ testTransaction :: IO ()
 testTransaction = do
   account <- readKeys chainId
   res <- runWeb3' (HttpProvider providerURL) $ do
-    Liquidity tokens eth <- getUniEthTokenBalances uniTTUSDT
-    return (tokens, eth)
+    return ()
     --receipt <- ethToTokenSwap account uniTTUSDT 1
     --return (receipt, tokens, eth)
-  putStrLn $ prettyShowResult show res
+  return ()
 
 getPrice :: IO ()
 getPrice = do
@@ -284,29 +265,3 @@ getPrice = do
   case ret of
     Left e  -> error $ show e
     Right v -> mapM_ print v
-
-testmain :: IO ()
-testmain = do
-  -- Use default provider on http://localhost:8545
-  ret <- runWeb3' (HttpProvider providerURL) $ do
-    let
-      Right addr' = BS.hexString myAddress
-      Right me = fromHexString addr'
-
-    myBalance <- WEB3.getBalance me Latest
-
-    -- Get half of balance
-    let halfBalance = fromWei myBalance
-
-    -- Use default account
-    withAccount () $ do
-      withParam (value .~ halfBalance) $ do
-        withParam (to .~ me) $ send ()
-        withParam (to .~ me) $ send ()
-
-    -- Return sended value
-    return halfBalance
-  -- Web3 error handling
-  case ret of
-      Left e  -> error $ show e
-      Right v -> print (v :: Ether)  -- Print returned value in ethers
