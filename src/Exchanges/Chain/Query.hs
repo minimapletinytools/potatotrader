@@ -12,13 +12,19 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Exchanges.Chain.Query (
+  getAddress,
+  getTokenBalance,
+  getBalance,
+
+
+
   getPrice,
   testmain,
   paramsToString,
   testTransaction
 ) where
 
-import           Types
+import           Types                             hiding (getBalance)
 
 import           Control.Monad                     (mapM_)
 import qualified Crypto.Ethereum                   as WEB3
@@ -40,24 +46,17 @@ import           System.IO
 
 import           Debug.Trace                       (trace)
 
--- load abi
+-- load abi, uniswap.json includes ERC20 abi
 [WEB3.abiFrom|uniswap.json|]
 
 
--- # @return Amount of ETH bought.
--- def tokenToEthSwapInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp) -> uint256(wei):
+{-
+compileErrorGiveMeType :: ()
+compileErrorGiveMeType = ethToTokenSwapInput
 
--- # @return Amount of Tokens that can be bought with input ETH.
--- def getEthToTokenInputPrice(eth_sold: uint256(wei)) -> uint256:
-
--- # @return Amount of ETH needed to buy output Tokens.
--- def getEthToTokenOutputPrice(tokens_bought: uint256) -> uint256(wei):
-
--- # @return Amount of ETH that can be bought with input Tokens.
--- def getTokenToEthInputPrice(tokens_sold: uint256) -> uint256(wei):
-
--- # @return Amount of Tokens needed to buy output ETH.
--- def getTokenToEthOutputPrice(eth_bought: uint256(wei)) -> uint256:
+compileErrorGiveMeType2 :: ()
+compileErrorGiveMeType2 = getTokenToEthOutputPrice
+-}
 
 
 paramsToString :: (Show p) => WEB3.CallParam p -> String
@@ -86,17 +85,46 @@ readKeys chainId = do
     --trace (show bs) $ return ()
     return $ WEB3.LocalKey (WEB3.importKey (BS.toBytes s :: BS.ByteString)) chainId
 
-{-
-compileErrorGiveMeType :: ()
-compileErrorGiveMeType = ethToTokenSwapInput
+getKeyPair :: Integer -> IO (WEB3.LocalKey, WEB3.Address)
+getKeyPair cid = do
+  k@(WEB3.LocalKey pk _) <- readKeys cid
+  return (k, WEB3.fromPubKey . WEB3.derivePubKey $ pk)
 
-compileErrorGiveMeType2 :: ()
-compileErrorGiveMeType2 = getTokenToEthOutputPrice
--}
+doweb3stuff :: String ->  WEB3.Web3 a -> IO a
+doweb3stuff url op = do
+  ret <- WEB3.runWeb3' (WEB3.HttpProvider url) op
+  case ret of
+    Left e  -> error $ show e
+    Right v -> return v
+
+-- | getAddress returns the public address of the signing key on disk
+getAddress :: IO WEB3.Address
+getAddress = getKeyPair 1 >>= return . snd
+
+-- | getBalance
+getBalance :: String -> IO Integer
+getBalance url = do
+  addr <- getAddress
+  let op = WEB3.getBalance addr WEB3.Latest
+  r <- doweb3stuff url op
+  return $ toInteger r
+
+-- | getTokenBalance
+getTokenBalance :: String -> WEB3.Address -> IO Integer
+getTokenBalance url tAddr = do
+  addr <- getAddress
+  let op = WEB3.withAccount () $ WEB3.withParam (WEB3.to .~ tAddr) $ balanceOf addr
+  r <- doweb3stuff url op
+  return $ toInteger r
+
+
+
+
+
 
 providerURL = "https://mainnet-rpc.thundercore.com"
 --providerURL = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
-chainID = 108
+chainId = 108
 myAddress = "0xC82bDc455bF1EB9A5e4b9D54979232e2b7340643" :: BS.ByteString
 
 ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
@@ -174,7 +202,7 @@ prettyShowResult f (Right x) = f x
 
 testTransaction :: IO ()
 testTransaction = do
-  account <- readKeys chainID
+  account <- readKeys chainId
   res <- WEB3.runWeb3' (WEB3.HttpProvider providerURL) $ do
     Liquidity tokens eth <- getUniEthTokenBalances uniTTUSDT
     return (tokens, eth)
@@ -184,7 +212,7 @@ testTransaction = do
 
 getPrice :: IO ()
 getPrice = do
-  account <- readKeys chainID
+  account <- readKeys chainId
   --let
   --  key = "0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20" :: BS.HexString
   --  local = WEB3.LocalKey (WEB3.importKey key) 108

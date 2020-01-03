@@ -16,9 +16,7 @@ module Types (
 
   TT(..),
   ETH(..),
-  USDT(..),
-  ThunderCoreMain(..),
-  OnChain(..)
+  USDT(..)
 ) where
 
 import           Data.Proxy
@@ -38,6 +36,7 @@ class Exchange e where
 class Network n where
   networkName :: Proxy n -> String
   rpc :: Proxy n -> String
+  chainID :: Proxy n -> Int
 
 class (Token t, Exchange e) => ExchangeToken t e where
 
@@ -106,18 +105,6 @@ instance Token ETH where
 instance Token USDT where
   tokenName _ = "USDT"
 
--- networks
-data ThunderCoreMain
-
-instance Network ThunderCoreMain where
-  networkName _ = "ThunderCore mainnet"
-  rpc _ = "https://mainnet-rpc.thundercore.com"
-
--- exchanges
-data OnChain n = OnChain
-
-instance (Network n) => Exchange (OnChain n) where
-  exchangeName _ = networkName (Proxy :: Proxy n)
 
 
 
