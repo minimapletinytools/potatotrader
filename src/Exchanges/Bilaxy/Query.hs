@@ -2,6 +2,8 @@
 
 
 module Exchanges.Bilaxy.Query (
+  DecodeError(..),
+
   getTicker,
   getBalanceOf,
   getOrderInfo,
@@ -18,6 +20,7 @@ module Exchanges.Bilaxy.Query (
 
 where
 
+import           Control.Exception
 import           Control.Monad              (mapM_)
 import qualified Crypto.Hash.SHA1           as SHA1
 import           Data.Aeson
@@ -34,13 +37,21 @@ import           Debug.Trace                (trace)
 import qualified Exchanges.Bilaxy.Aeson     as BA
 import           Network.HTTP.Simple
 import           System.IO
+import           System.IO.Error
 import           Text.Printf
+
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
 
 type Params = [(BS.ByteString, BS.ByteString)]
 type KeyPair = (BS.ByteString, BS.ByteString)
+
+newtype DecodeError = DecodeError String
+  deriving (Show)
+instance Exception DecodeError
+instance Eq DecodeError where
+  (==) a b = True
 
 -- TODO prompt for password and decrypt
 -- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
@@ -101,7 +112,7 @@ makeRequest gateway priv method path params = do
   printResponse response
   let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
-    Left v  -> error $ "bilaxy decode error: " ++ show v
+    Left v  -> throwIO $ DecodeError $ "bilaxy decode error: " ++ show v
     Right a -> return a
 
 -- | makeStandardResponseRequest calls makeRequest assuming the return type is wrapped in BA.BilaxyResponse
@@ -138,11 +149,10 @@ getBalanceOf symbol = do
     Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
     Just b  -> return . fst $ b
 
--- TODO convert BA.OrderInfo into some common format..
+-- TODO what happens when order does not exist, probably same as cancelOrder
 getOrderInfo :: Int -> IO BA.OrderInfo
 getOrderInfo orderId = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_view" [("id", showBS orderId)]
 
--- TODO convert BA.OrderInfo into some common format..
 getOrderList :: Int -> IO [BA.OrderInfo]
 getOrderList pair = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
 
