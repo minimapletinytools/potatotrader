@@ -20,7 +20,7 @@ assertThrows action = do
 
 testPublic :: Test
 testPublic = TestCase $ do
-  r <- getTicker (pairID (Proxy :: Proxy (TT,USDT,Bilaxy)))
+  r <- getTicker $ unBilaxyPair $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
   print r -- not best way to force r but whatever
 
 -- TODO update this to call getBalance via ExchangeToken typeclass

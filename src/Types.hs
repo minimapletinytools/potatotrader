@@ -12,7 +12,6 @@ module Types (
   Exchange(..),
   ExchangeToken(..),
   ExchangePair(..),
-  Network(..),
   OrderState(..),
   OrderStatus(..),
   Order,
@@ -35,15 +34,11 @@ class Token t where
 
 class Exchange e where
   exchangeName :: Proxy e -> String
+  data ExchangePairId e :: *
   -- TODO something like this? However, we either need to use mutable cache (doable since everything we need it for is IO) or have all types return the cache as well
   -- data ExchangeCache :: *
   -- TODO generalize account access to the exchange
   -- data ExchangeAccount e :: *
-
-class Network n where
-  networkName :: Proxy n -> String
-  rpc :: Proxy n -> String
-  chainID :: Proxy n -> Int
 
 class (Token t, Exchange e) => ExchangeToken t e where
   -- TODO probably don't need this, it's encapsulated by getBalance
@@ -70,13 +65,10 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
     exchangeName (Proxy :: Proxy e) ++ " "
     ++ tokenName (Proxy :: Proxy t1) ++ ":"
     ++ tokenName (Proxy :: Proxy t2)
-  -- TODO not all exchanges will use ints for pair ID. Either abstract it or use String type and read to convert it per exchange
-  -- returns 0 if not needed
-  pairID :: Proxy (t1,t2,e) -> Int
-  pairID _ = 0
-  -- returns 0x0 if not a dex
-  dexAddr :: Proxy (t1,t2,e) -> Address
-  dexAddr _ = "0x0"
+
+  -- | pairID returns a String identifier
+  pairId :: Proxy (t1,t2,e) -> ExchangePairId e
+
   -- | liquidity returns your respective balance in the two tokens
   -- TODO is this the right name for it?
   liquidity :: Proxy (t1,t2,e) -> IO (Liquidity t1 t2)
@@ -85,12 +77,13 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
     b2 <- getBalance (Proxy :: Proxy (t2, e))
     return $ Liquidity b1 b2
 
-  data Order t1 t2 :: *
-  -- TODO buy/sell (maybe split into two funcs?)
-  order :: Amount t1 -> Amount t2 -> IO (Order t1 t2)
-  getStatus :: Order t1 t2 -> IO OrderStatus
-  canCancel :: Order t1 t2 -> Bool -- or is this a method of OrderStatus?
-  cancel :: Order t1 t2 -> IO Bool
+  data Order t1 t2 e :: *
+  -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
+  order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 e)
+  getStatus :: Order t1 t2 e -> IO OrderStatus
+  canCancel :: Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
+  cancel :: Order t1 t2 e -> IO Bool
+  cancel = undefined
 
 
 

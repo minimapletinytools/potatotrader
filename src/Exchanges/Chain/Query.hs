@@ -15,6 +15,8 @@ module Exchanges.Chain.Query (
   getAddress,
   getTokenBalance,
   getBalance,
+  txEthToTokenSwap,
+  getTransactionByHash,
 
 
 
@@ -24,8 +26,9 @@ module Exchanges.Chain.Query (
   testTransaction
 ) where
 
-import           Types                             hiding (getBalance)
+import           Types                             hiding (chainId, getBalance)
 
+import           Control.Exception
 import           Control.Monad                     (mapM_)
 import qualified Crypto.Ethereum                   as WEB3
 import qualified Data.ByteArray.HexString          as BS
@@ -58,6 +61,9 @@ compileErrorGiveMeType2 :: ()
 compileErrorGiveMeType2 = getTokenToEthOutputPrice
 -}
 
+newtype MissingError = MissingError String
+  deriving (Show)
+instance Exception MissingError
 
 paramsToString :: (Show p) => WEB3.CallParam p -> String
 paramsToString p =
@@ -94,7 +100,7 @@ doweb3stuff :: String ->  WEB3.Web3 a -> IO a
 doweb3stuff url op = do
   ret <- WEB3.runWeb3' (WEB3.HttpProvider url) op
   case ret of
-    Left e  -> error $ show e
+    Left e  -> throwIO $ e
     Right v -> return v
 
 -- | getAddress returns the public address of the signing key on disk
@@ -117,7 +123,31 @@ getTokenBalance url tAddr = do
   r <- doweb3stuff url op
   return $ toInteger r
 
+getTransactionByHash :: String -> BS.HexString -> IO WEB3.Transaction
+getTransactionByHash url hash = do
+  r <- doweb3stuff url $ WEB3.getTransactionByHash hash
+  case r of
+    Nothing -> throwIO $ MissingError "tx not found"
+    Just tx -> return tx
 
+txEthToTokenSwap ::
+  String
+  -> Integer
+  -> WEB3.Address
+  -> WEB3.Wei
+  -> Integer
+  -> IO WEB3.TxReceipt
+txEthToTokenSwap url cid uniAddr amountEth minTokens = do
+  (account,_) <- getKeyPair cid
+  blockTime <- doweb3stuff url $ do
+    bn <- WEB3.blockNumber
+    block <- WEB3.getBlockByNumber bn
+    return $ toInteger $ WEB3.blockTimestamp block
+  doweb3stuff url $
+    WEB3.withAccount account
+    . WEB3.withParam (WEB3.to .~ uniAddr)
+    . WEB3.withParam (WEB3.value .~ amountEth) $
+      ethToTokenSwapInput (fromInteger minTokens) (fromInteger (blockTime + 100))
 
 
 

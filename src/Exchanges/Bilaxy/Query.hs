@@ -50,8 +50,7 @@ type KeyPair = (BS.ByteString, BS.ByteString)
 newtype DecodeError = DecodeError String
   deriving (Show)
 instance Exception DecodeError
-instance Eq DecodeError where
-  (==) a b = True
+
 
 -- TODO prompt for password and decrypt
 -- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
