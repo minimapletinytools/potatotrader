@@ -18,8 +18,7 @@ module Types (
   ETH(..),
   USDT(..),
   ThunderCoreMain(..),
-  OnChain(..),
-  Bilaxy(..),
+  OnChain(..)
 ) where
 
 import           Data.Proxy
@@ -62,18 +61,19 @@ data OrderStatus = OrderStatus {
 
 -- maybe simpler way to do type level exchange pairs
 class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
-  pairName :: Proxy (ExchangePair t1 t2 e) -> String
+  pairName :: Proxy (t1,t2,e) -> String
   pairName _ =
     exchangeName (Proxy :: Proxy e) ++ " "
     ++ tokenName (Proxy :: Proxy t1) ++ ":"
     ++ tokenName (Proxy :: Proxy t2)
+  -- TODO not all exchanges will use ints for pair ID. Either abstract it or use String type and read to convert it per exchange
   -- returns 0 if not needed
-  pairID :: Proxy (ExchangePair t1 t2 e) -> Int
+  pairID :: Proxy (t1,t2,e) -> Int
   pairID _ = 0
   -- returns 0x0 if not a dex
-  dexAddr :: Proxy (ExchangePair t1 t2 e) -> Address
+  dexAddr :: Proxy (t1,t2,e) -> Address
   dexAddr _ = "0x0"
-  liquidity :: Proxy (ExchangePair t1 t2 e) -> IO (Liquidity t1 t2)
+  liquidity :: Proxy (t1,t2,e) -> IO (Liquidity t1 t2)
   liquidity _ = do
     b1 <- getBalance (Proxy :: Proxy (t1, e))
     b2 <- getBalance (Proxy :: Proxy (t2, e))
@@ -118,12 +118,6 @@ data OnChain n = OnChain
 
 instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
-
-data Bilaxy
-
-instance Exchange Bilaxy where
-  exchangeName _ = "Bilaxy"
-
 
 
 

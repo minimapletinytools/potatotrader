@@ -1,11 +1,18 @@
 {-# LANGUAGE TypeFamilies #-}
 module Exchanges.Bilaxy.Exchange (
-
+  Bilaxy(..)
 ) where
 
 import           Data.Proxy
 import           Exchanges.Bilaxy.Query
 import           Types
+
+
+data Bilaxy
+
+instance Exchange Bilaxy where
+  exchangeName _ = "Bilaxy"
+
 
 eighteenDecimals :: Integer
 eighteenDecimals = read "1000000000000000000"

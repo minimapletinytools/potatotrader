@@ -1,5 +1,6 @@
 module Exchanges.Bilaxy.Aeson (
   BilaxyResponse(..),
+  Ticker(..),
   BalanceData(..),
   BalanceDataMap(..),
   sortBalanceData,
@@ -45,6 +46,26 @@ instance (FromJSON a) => FromJSON (BilaxyResponse a) where
     fCode :: String <- v .: "code"
     fData :: a <- v .: "data"
     return $ BilaxyResponse (read fCode) fData
+
+data Ticker = Ticker {
+  t_high   :: Double
+  , t_low  :: Double
+  , t_buy  :: Double
+  , t_sell :: Double
+  , t_last :: Double
+  , t_vol  :: Double
+} deriving (Show)
+
+instance FromJSON Ticker where
+  parseJSON = withObject "Ticker" $ \v -> do
+    high :: String <- v .: "high"
+    low :: String  <- v .: "low"
+    buy :: String <- v .: "buy"
+    sell :: String <- v .: "sell"
+    fLast :: String <- v .: "last"
+    vol :: String <- v .: "vol"
+    return $ Ticker (read high) (read low) (read buy) (read sell) (read fLast) (read vol)
+
 
 data BalanceData = BalanceData {
   symbol    :: Int

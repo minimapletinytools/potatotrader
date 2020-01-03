@@ -62,8 +62,9 @@ dependencies:
 - vector
 - time
 - unix-time
-- tasty
+- hspec
 - HUnit
+- hspec-contrib
 
 library:
   source-dirs: src

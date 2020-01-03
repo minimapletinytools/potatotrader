@@ -1,2 +1,5 @@
+import qualified Exchanges.Bilaxy.Tests
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+  Exchanges.Bilaxy.Tests.tests

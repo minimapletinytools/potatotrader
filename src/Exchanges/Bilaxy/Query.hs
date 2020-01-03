@@ -2,14 +2,20 @@
 
 
 module Exchanges.Bilaxy.Query (
+  getTicker,
   getBalanceOf,
-
-
+  getOrderInfo,
+  getOrderList,
+  getDepth,
+  getRateLimit,
+  postOrder,
+  cancelOrder,
 
   testDepth,
   testBalance,
   send
 )
+
 where
 
 import           Control.Monad              (mapM_)
@@ -107,19 +113,21 @@ makeStandardResponseRequest gateway priv method path params = do
     _   -> error $ "bad return code: " ++ show code
 
 
-balanceRequest :: KeyPair -> IO Request
-balanceRequest kp = generatePrivRequest oldGateway kp "GET" "/v1/balances/" []
+showBS :: (Show a) => a -> BS.ByteString
+showBS = BS.fromString . show
 
--- pullBalance returns (balance, frozen) of key from a BalanceData query
+-- | getTicker returns price ticker for given pair
+getTicker :: Int -> IO BA.Ticker
+getTicker pair = do
+  makeStandardResponseRequest oldGateway True "GET" "/v1/ticker/" [("symbol", showBS pair)]
+
+-- | pullBalance returns (balance, frozen) of key from a BalanceData query
 pullBalance :: BA.BalanceDataMap -> String -> Maybe (Double, Double)
 pullBalance bdm key = do
   bd <- M.lookup key bdm
   return (BA.balance bd, BA.frozen bd)
 
--- TODO need to convert units
---getLiquidityPair :: (String, String) -> BA.BalanceDataMap -> Liquidity
---getLiquidityPair keys bdm = fmap (fst . pullBalance $ bdm) keys
-
+-- | getBalanceOf returns balance of given symbol
 getBalanceOf :: String -> IO Double
 getBalanceOf symbol = do
   bd <- makeStandardResponseRequest oldGateway True "GET" "/v1/balances/" []
@@ -129,11 +137,6 @@ getBalanceOf symbol = do
   case maybeBalance of
     Nothing -> error $ "could not find " ++ symbol ++ " in " ++ show bd
     Just b  -> return . fst $ b
-
-
-
-showBS :: (Show a) => a -> BS.ByteString
-showBS = BS.fromString . show
 
 -- TODO convert BA.OrderInfo into some common format..
 getOrderInfo :: Int -> IO BA.OrderInfo
