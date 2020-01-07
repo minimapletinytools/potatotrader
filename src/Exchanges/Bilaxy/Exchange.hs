@@ -3,7 +3,7 @@
 
 module Exchanges.Bilaxy.Exchange (
   Bilaxy(..),
-  unBilaxyPair
+  BilaxyOrderDetails(..)
 ) where
 
 import           Control.Exception
@@ -23,18 +23,13 @@ data Bilaxy
 
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
-  type ExchangePairId Bilaxy = BilaxyTradingPair Int
-
-unBilaxyPair :: ExchangePairId Bilaxy -> Int
-unBilaxyPair (BilaxyTradingPair pair) = pair
-
+  type ExchangePairId Bilaxy = Int
 
 data BilaxyFlip
 
 instance Exchange BilaxyFlip where
   exchangeName _ = "Bilaxy (flipped pairs)"
-  --data ExchangePairId BilaxyFlip = BilaxyFlipTradingPair Int
-  data ExchangePairId BilaxyFlip = ExchangePairId Bilaxy
+  type ExchangePairId BilaxyFlip = Int
 
 
 getBalanceHelper :: forall t e. (Token t, ExchangeToken t e) => Proxy (t,e) -> IO (Amount t)
@@ -54,21 +49,23 @@ instance ExchangeToken TT BilaxyFlip where
 instance ExchangeToken USDT BilaxyFlip where
   getBalance = getBalanceHelper
 
+data BilaxyOrderDetails = BilaxyOrderDetails {
+  orderId :: Int
+} deriving (Show)
+
 type BilaxyExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
-  pairId _ = BilaxyTradingPair (getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2))
+  pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
-  data Order t1 t2 Bilaxy = BilaxyOrder {
-    orderId :: Int
-  } deriving (Show)
-  getStatus (BilaxyOrder oid) = do
+  data Order t1 t2 Bilaxy = BilaxyOrder BilaxyOrderDetails deriving (Show)
+  getStatus (BilaxyOrder (BilaxyOrderDetails oid)) = do
     v <- try (getOrderInfo oid)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right oi               -> return . OrderStatus . BA.toOrderState . BA.oi_status $ oi
   canCancel _ = True
-  cancel (BilaxyOrder oid) = do
+  cancel (BilaxyOrder (BilaxyOrderDetails oid)) = do
     v <- try (cancelOrder oid)
     case v of
       Left (SomeException _) -> return False
@@ -83,21 +80,23 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
       amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
       price_t2 = amount_t2 / amount_t1
-      BilaxyTradingPair pair = pairId pproxy
+      pair = pairId pproxy
     v <- try (postOrder pair amount_t1 amount_t2 ot)
     case v of
       Left (SomeException e) -> do
         print e
         return undefined
-      Right oid              -> return $ BilaxyOrder oid
+      Right oid              -> return $ BilaxyOrder (BilaxyOrderDetails oid)
+
+type BilaxyFlipExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t2 t1, ExchangeToken t1 BilaxyFlip, ExchangeToken t2 BilaxyFlip)
 
 -- |
-instance (BilaxyExchangePairConstraints t2 t1) => ExchangePair t1 t2 BilaxyFlip where
+instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyFlip where
   -- uses same pairId as unflipped version
-  pairId _ = BilaxyTradingPair (getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1))
-  data Order t1 t2 BilaxyFlip = BilaxyFlipOrder (Order t2 t1 Bilaxy)
+  pairId _ = getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1)
+  data Order t1 t2 BilaxyFlip = BilaxyFlipOrder BilaxyOrderDetails deriving (Show)
   getStatus _ = undefined
   canCancel _ = True
   cancel _ = undefined
-  order :: (BilaxyExchangePairConstraints t2 t1) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
+  order :: (BilaxyFlipExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
   order ot (Amount t1) (Amount t2) = undefined

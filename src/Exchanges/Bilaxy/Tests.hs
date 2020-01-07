@@ -20,7 +20,7 @@ assertThrows action = do
 
 testPublic :: Test
 testPublic = TestCase $ do
-  r <- getTicker $ unBilaxyPair $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
+  r <- getTicker $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
   print r -- not best way to force r but whatever
 
 testPrivate :: Test

@@ -44,7 +44,7 @@ data OnChain n
 
 instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
-  data ExchangePairId (OnChain n) = DexAddress Address
+  type ExchangePairId (OnChain n) = Address
 
 -- Token Exchanges
 instance (Exchange (OnChain n), Network n) => ExchangeToken TT (OnChain n) where
@@ -58,7 +58,7 @@ instance (Exchange (OnChain n), Network n) => ExchangeToken USDT (OnChain n) whe
 
 
 instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) where
-  pairId _ = DexAddress "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
+  pairId _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
   data Order TT USDT (OnChain n) = OnChainOrder {
     receipt :: TxReceipt
   }
@@ -74,7 +74,7 @@ instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) w
     let
       nproxy = Proxy :: Proxy n
       pproxy = Proxy :: Proxy (TT,USDT,OnChain n)
-      DexAddress addr = pairId pproxy
+      addr = pairId pproxy
       cid = chainId nproxy
       url = rpc nproxy
     v <- case ot of
