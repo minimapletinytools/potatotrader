@@ -1,3 +1,8 @@
+:: NEW TODO::
+- accounts should not be read in IO monad. They should be passed in as an argument for each private exchange function (using data family for type)
+
+:: OLD NOTES ::
+
 trading algo at high level
 
 parameters:

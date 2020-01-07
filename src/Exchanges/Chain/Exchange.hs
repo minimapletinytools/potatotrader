@@ -19,13 +19,12 @@ import qualified Exchanges.Chain.Query      as Q
 import           Network.Ethereum.Api.Types (TxReceipt (..))
 import           Types
 
-
+-- network
 class Network n where
   networkName :: Proxy n -> String
   rpc :: Proxy n -> String
   chainId :: Proxy n -> Integer
 
--- networks
 data ThunderCoreMain
 data EthereumMain
 
@@ -40,12 +39,18 @@ instance Network EthereumMain where
   rpc _ = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
   chainId _ = 1
 
+-- helpers
+class (Token t, Network n) => ChainToken t n where
+  getBalanceOf :: Proxy (t,n) -> Address -> Amount t
+
+-- exchange
 data OnChain n
 
 instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
   type ExchangePairId (OnChain n) = Address
 
+-- TODO make this generic like you did with Bilaxy
 -- Token Exchanges
 instance (Exchange (OnChain n), Network n) => ExchangeToken TT (OnChain n) where
   getBalance _ = Amount <$> Q.getBalance (rpc p) where
@@ -59,16 +64,20 @@ instance (Exchange (OnChain n), Network n) => ExchangeToken USDT (OnChain n) whe
 
 instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) where
   pairId _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
+
   data Order TT USDT (OnChain n) = OnChainOrder {
     receipt :: TxReceipt
   }
+
   getStatus (OnChainOrder receipt) = do
     let url = rpc (Proxy :: Proxy n)
     v <- try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right _                -> return $ OrderStatus Executed
+
   canCancel _ = False
+
   order :: OrderType -> Amount TT -> Amount USDT -> IO (Order TT USDT (OnChain n))
   order ot (Amount tt) (Amount usdt) = do
     let
@@ -83,3 +92,6 @@ instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) w
     case v of
       Left (SomeException _) -> undefined
       Right receipt          -> return $ OnChainOrder receipt
+
+  getExchangeRate :: Proxy (TT,USDT,OnChain n) -> IO (ExchangeRate TT USDT)
+  getExchangeRate _ = undefined

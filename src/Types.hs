@@ -9,6 +9,7 @@ module Types (
   Amount(..),
   Liquidity(..),
   OrderType(..),
+  ExchangeRate(..),
 
   Token(..),
   fromStdDenom,
@@ -33,6 +34,17 @@ newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 data OrderType = Buy | Sell deriving (Eq, Show)
+
+data ExchangeRate t1 t2 = ExchangeRate {
+  -- | t2Bought returns approx amount of t2 bought for input of t1
+  t2Bought   :: Amount t1 -> Amount t2
+  -- | t1Bought returns approx amount of t1 bought for input of t2
+  , t1Bought :: Amount t1 -> Amount t2
+  -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
+  -- does not distinguish between buy/sell
+  -- TODO this should probably return something like (TimeDiff -> Double)
+  , variance :: Amount t1 -> Amount t2 -> Double
+}
 
 class Token t where
   tokenName :: Proxy t -> String
@@ -77,11 +89,15 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
 
   -- | liquidity returns your respective balance in the two tokens
   -- TODO is this the right name for it?
+  -- TODO probably just delete this function, there's no reason an exchange would override this implementation
   liquidity :: Proxy (t1,t2,e) -> IO (Liquidity t1 t2)
   liquidity _ = do
     b1 <- getBalance (Proxy :: Proxy (t1, e))
     b2 <- getBalance (Proxy :: Proxy (t2, e))
     return $ Liquidity b1 b2
+
+  -- | getExchangeRate returns the current exchange rate
+  getExchangeRate :: Proxy (t1,t2,e) -> IO (ExchangeRate t1 t2)
 
   data Order t1 t2 e :: *
   -- | getOrders returns all unexecuted orders

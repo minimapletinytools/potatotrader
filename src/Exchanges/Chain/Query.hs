@@ -17,8 +17,10 @@
 
 module Exchanges.Chain.Query (
   getAddress,
-  getTokenBalance,
+  getBalanceOf,
   getBalance,
+  getTokenBalanceOf,
+  getTokenBalance,
   txEthToTokenSwap,
   getTransactionByHash
 ) where
@@ -103,21 +105,26 @@ doweb3stuff url op = do
 getAddress :: IO Address
 getAddress = getKeyPair 1 >>= return . snd
 
+getBalanceOf :: String -> Address -> IO Integer
+getBalanceOf url addr = do
+  let op = WEB3.getBalance addr Latest
+  r <- doweb3stuff url op
+  return $ toInteger r
+
 -- | getBalance
 getBalance :: String -> IO Integer
-getBalance url = do
-  addr <- getAddress
-  let op = WEB3.getBalance addr Latest
+getBalance url = getAddress >>= getBalanceOf url
+
+-- | getTokenBalanceOf
+getTokenBalanceOf :: String -> Address -> Address -> IO Integer
+getTokenBalanceOf url tAddr addr = do
+  let op = withAccount () $ withParam (to .~ tAddr) $ balanceOf addr
   r <- doweb3stuff url op
   return $ toInteger r
 
 -- | getTokenBalance
 getTokenBalance :: String -> Address -> IO Integer
-getTokenBalance url tAddr = do
-  addr <- getAddress
-  let op = withAccount () $ withParam (to .~ tAddr) $ balanceOf addr
-  r <- doweb3stuff url op
-  return $ toInteger r
+getTokenBalance url tAddr = getAddress >>= getTokenBalanceOf url tAddr
 
 getTransactionByHash :: String -> BS.HexString -> IO Transaction
 getTransactionByHash url hash = do
