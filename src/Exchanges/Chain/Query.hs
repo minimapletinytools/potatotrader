@@ -11,6 +11,10 @@
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
+-- warnings disabled for web3 TH generated code
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+
 module Exchanges.Chain.Query (
   getAddress,
   getTokenBalance,
@@ -19,14 +23,11 @@ module Exchanges.Chain.Query (
   getTransactionByHash
 ) where
 
-import           Types                             hiding (chainId, getBalance)
-
 import           Control.Exception
 import           Control.Monad                     (mapM_)
 import           Crypto.Ethereum
 import qualified Data.ByteArray.HexString          as BS
 import qualified Data.ByteString                   as BS
-import qualified Data.ByteString.Builder           as BS
 import           Data.Function                     ((&))
 import           Data.Solidity.Prim.Address
 import           Lens.Micro                        ((.~))
@@ -37,7 +38,6 @@ import           Network.Ethereum.Api.Provider
 import           Network.Ethereum.Api.Types        hiding (blockNumber)
 import           Network.Ethereum.Contract.TH
 import           Network.Ethereum.Web3
-import           Network.JsonRpc.TinyClient
 import           System.IO
 
 import           Debug.Trace                       (trace)
@@ -54,9 +54,15 @@ compileErrorGiveMeType2 :: ()
 compileErrorGiveMeType2 = getTokenToEthOutputPrice
 -}
 
+newtype SomeError = SomeError String
+  deriving (Show)
+instance Exception SomeError
 newtype MissingError = MissingError String
   deriving (Show)
 instance Exception MissingError
+newtype DecodeError = DecodeError String
+  deriving (Show)
+instance Exception DecodeError
 
 paramsToString :: (Show p) => CallParam p -> String
 paramsToString p =
@@ -68,21 +74,18 @@ paramsToString p =
    ++ "\naccount: " ++ show (_account p)
 
 readKeys :: Integer -> IO LocalKey
-readKeys chainId = do
-    handle <- openFile "keys.txt" ReadMode
+readKeys cid = do
+    h <- openFile "keys.txt" ReadMode
     -- skip bilaxy keys
-    _ <- BS.hGetLine handle
-    _ <- BS.hGetLine handle
+    _ <- BS.hGetLine h
+    _ <- BS.hGetLine h
     -- pub key
-    _ <- BS.hGetLine handle
-    sec <- BS.hGetLine handle
-    hClose handle
-    let
-      Right s = BS.hexString sec
-      bs = BS.toBytes s :: BS.ByteString
-    --trace (show s) $ return ()
-    --trace (show bs) $ return ()
-    return $ LocalKey (importKey (BS.toBytes s :: BS.ByteString)) chainId
+    _ <- BS.hGetLine h
+    sec <- BS.hGetLine h
+    hClose h
+    case BS.hexString sec of
+      Right s -> return $ LocalKey (importKey (BS.toBytes s :: BS.ByteString)) cid
+      Left _ -> throwIO $ DecodeError "invalid secret key"
 
 getKeyPair :: Integer -> IO (LocalKey, Address)
 getKeyPair cid = do
@@ -131,13 +134,13 @@ txEthToTokenSwap ::
   -> Integer
   -> IO TxReceipt
 txEthToTokenSwap url cid uniAddr amountEth minTokens = do
-  (account,_) <- getKeyPair cid
+  (acct,_) <- getKeyPair cid
   blockTime <- doweb3stuff url $ do
     bn <- WEB3.blockNumber
-    block <- WEB3.getBlockByNumber bn
-    return $ toInteger $ blockTimestamp block
+    bl <- WEB3.getBlockByNumber bn
+    return $ toInteger $ blockTimestamp bl
   doweb3stuff url $
-    withAccount account
+    withAccount acct
     . withParam (to .~ uniAddr)
     . withParam (value .~ amountEth) $
       ethToTokenSwapInput (fromInteger minTokens) (fromInteger (blockTime + 100))
