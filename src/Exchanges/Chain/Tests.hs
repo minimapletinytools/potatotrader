@@ -23,7 +23,7 @@ test_getAddress = TestCase $ do
 
 tests :: IO ()
 tests = hspec $
-  describe "Bilaxy" $ do
+  describe "Chain" $ do
     describe "getBalance" $
       fromHUnitTest test_getBalance
     describe "Address" $

@@ -19,9 +19,6 @@ import qualified Exchanges.Chain.Query      as Q
 import           Network.Ethereum.Api.Types (TxReceipt (..))
 import           Types
 
-eighteenDecimals :: Integer
-eighteenDecimals = read "1000000000000000000"
-
 
 class Network n where
   networkName :: Proxy n -> String
@@ -51,13 +48,11 @@ instance (Network n) => Exchange (OnChain n) where
 
 -- Token Exchanges
 instance (Exchange (OnChain n), Network n) => ExchangeToken TT (OnChain n) where
-  decimals _ = eighteenDecimals
   getBalance _ = Amount <$> Q.getBalance (rpc p) where
     p = Proxy :: Proxy n
 
 ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
 instance (Exchange (OnChain n), Network n) => ExchangeToken USDT (OnChain n) where
-  decimals _ = eighteenDecimals
   getBalance _ = Amount <$> Q.getTokenBalance (rpc p) ttUSDT where
     p = Proxy :: Proxy n
 
@@ -75,7 +70,7 @@ instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) w
       Right _                -> return $ OrderStatus Executed
   canCancel _ = False
   order :: OrderType -> Amount TT -> Amount USDT -> IO (Order TT USDT (OnChain n))
-  order ot tt usdt = do
+  order ot (Amount tt) (Amount usdt) = do
     let
       nproxy = Proxy :: Proxy n
       pproxy = Proxy :: Proxy (TT,USDT,OnChain n)

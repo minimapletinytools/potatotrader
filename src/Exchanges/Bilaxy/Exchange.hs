@@ -19,30 +19,23 @@ instance Exchange Bilaxy where
 unBilaxyPair :: ExchangePairId Bilaxy -> Int
 unBilaxyPair (BilaxyTradingPair pair) = pair
 
-eighteenDecimals :: Integer
-eighteenDecimals = read "1000000000000000000"
-sixDecimals :: Integer
-sixDecimals = read "1000000"
-
-getBalanceHelper :: (ExchangeToken t e) => Proxy (t,e) -> Integer -> IO (Amount t)
-getBalanceHelper p decimals = do
+getBalanceHelper :: forall t e. (Token t, ExchangeToken t e) => Proxy (t,e) -> IO (Amount t)
+getBalanceHelper p = do
   b <- getBalanceOf $ symbol p
-  return . Amount . floor $ fromIntegral decimals * b
+  return . Amount . floor $ fromIntegral (decimals (Proxy :: Proxy t)) * b
 
 instance ExchangeToken TT Bilaxy where
-  decimals _ = eighteenDecimals
-  getBalance p = getBalanceHelper p eighteenDecimals
+  getBalance = getBalanceHelper
 
 instance ExchangeToken USDT Bilaxy where
-  decimals _ = sixDecimals
-  getBalance p = getBalanceHelper p sixDecimals
+  getBalance = getBalanceHelper
 
 instance ExchangePair TT USDT Bilaxy where
   pairId _ = BilaxyTradingPair 151
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
   data Order TT USDT Bilaxy = BilaxyOrder {
     orderId :: Int
-  }
+  } deriving (Show)
   getStatus (BilaxyOrder oid) = do
     v <- try (getOrderInfo oid)
     case v of
@@ -55,16 +48,19 @@ instance ExchangePair TT USDT Bilaxy where
       Left (SomeException _) -> return False
       Right oi               -> return True
   order :: OrderType -> Amount TT -> Amount USDT -> IO (Order TT USDT Bilaxy)
-  order ot tt usdt = do
+  order ot (Amount tt) (Amount usdt) = do
     let
       -- TODO generalize this conversion function
-      etproxy = Proxy :: Proxy (TT, Bilaxy)
+      ttproxy = Proxy :: Proxy TT
+      usdtproxy = Proxy :: Proxy USDT
       pproxy = Proxy :: Proxy (TT,USDT,Bilaxy)
-      amount_tt = fromIntegral tt / fromIntegral (decimals etproxy)
-      amount_usdt = fromIntegral usdt / fromIntegral (decimals etproxy)
+      amount_tt = fromIntegral tt / fromIntegral (decimals ttproxy)
+      amount_usdt = fromIntegral usdt / fromIntegral (decimals usdtproxy)
       price_usdt = amount_usdt / amount_tt
       BilaxyTradingPair pair = pairId pproxy
     v <- try (postOrder pair amount_tt amount_usdt ot)
     case v of
-      Left (SomeException _) -> undefined
+      Left (SomeException e) -> do
+        print e
+        return undefined
       Right oid              -> return $ BilaxyOrder oid

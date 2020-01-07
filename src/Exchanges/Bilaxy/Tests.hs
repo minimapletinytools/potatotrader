@@ -23,15 +23,30 @@ testPublic = TestCase $ do
   r <- getTicker $ unBilaxyPair $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
   print r -- not best way to force r but whatever
 
--- TODO update this to call getBalance via ExchangeToken typeclass
 testPrivate :: Test
 testPrivate = TestCase $ do
-  r <- getBalanceOf (tokenName (Proxy :: Proxy TT))
-  print r -- not best way to force r but whatever
+  b1 <- getBalanceOf (tokenName (Proxy :: Proxy TT))
+  b2 <- getBalanceOf (tokenName (Proxy :: Proxy USDT))
+  print (b1,b2) -- not best way to force b1/b2 but whatever
+
+test_getBalance :: Test
+test_getBalance = TestCase $ do
+  b1 <- getBalance (Proxy :: Proxy (TT, Bilaxy))
+  b2 <- getBalance (Proxy :: Proxy (USDT, Bilaxy))
+  print (b1,b2) -- not best way to force b1/b2 but whatever
 
 test_getOrderInfo :: Test
 test_getOrderInfo = TestCase $
   assertThrows (getOrderInfo (-1))
+
+-- yes this actually makes an order and cancel it...
+-- uses a very very high sell price so unlikely to actually go through
+test_order_cancel :: Test
+test_order_cancel = TestCase $ do
+  o <- order Sell (fromStdDenom 9) (fromStdDenom 123) :: IO (Order TT USDT Bilaxy)
+  r <- cancel o
+  print (o, r)
+
 
 tests :: IO ()
 tests = hspec $
@@ -40,5 +55,9 @@ tests = hspec $
       fromHUnitTest testPublic
     describe "Private API" $
       fromHUnitTest testPrivate
+    describe "getBalance" $
+      fromHUnitTest test_getBalance
     describe "getOrderInfo" $
       fromHUnitTest test_getOrderInfo
+    describe "order_cancel" $
+      fromHUnitTest test_order_cancel

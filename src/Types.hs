@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NumDecimals                #-}
 {-# LANGUAGE TypeFamilies               #-}
+
 
 module Types (
   Amount(..),
@@ -9,6 +11,7 @@ module Types (
   OrderType(..),
 
   Token(..),
+  fromStdDenom,
   Exchange(..),
   ExchangeToken(..),
   ExchangePair(..),
@@ -18,19 +21,26 @@ module Types (
 
   TT(..),
   ETH(..),
-  USDT(..)
+  USDT(..),
+  SAI(..)
 ) where
 
 import           Data.Proxy
 import           Data.Solidity.Prim.Address (Address)
 
-newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real, Integral)
+-- | type safe representation of a currency amount in its base (smallest) denomination
+newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real)
+
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 data OrderType = Buy | Sell deriving (Show)
 
-
 class Token t where
   tokenName :: Proxy t -> String
+  decimals :: Proxy t -> Integer
+
+-- | fromStdDenom converts currency in standard demonation to base demonation
+fromStdDenom :: forall t. (Token t) => Integer -> Amount t
+fromStdDenom x = Amount (x * decimals (Proxy :: Proxy t))
 
 class Exchange e where
   exchangeName :: Proxy e -> String
@@ -45,11 +55,7 @@ class (Token t, Exchange e) => ExchangeToken t e where
   -- symbol of token on the exchange
   symbol :: Proxy (t,e) -> String
   symbol _ = tokenName (Proxy :: Proxy t)
-  -- TODO probably don't need this, it's encapsulated by getBalance
-  -- multiply by this to normalize
-  decimals :: Proxy (t,e) -> Integer
-  decimals _ = 1
-  -- get balance (normalized)
+  -- get balance (normalized to lowest denomination)
   getBalance :: Proxy (t,e) -> IO (Amount t)
 
 
@@ -96,15 +102,23 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
 data TT
 data ETH
 data USDT
+data SAI
 
 instance Token TT where
   tokenName _ = "TT"
+  decimals _ = 1e18
 
 instance Token ETH where
   tokenName _ = "ETH"
+  decimals _ = 1e18
 
 instance Token USDT where
   tokenName _ = "USDT"
+  decimals _ = 1e6
+
+instance Token SAI where
+  tokenName _ = "SAI"
+  decimals _ = 1e18
 
 
 
