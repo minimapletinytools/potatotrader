@@ -32,7 +32,7 @@ import           Data.Solidity.Prim.Address (Address)
 newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real)
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
-data OrderType = Buy | Sell deriving (Show)
+data OrderType = Buy | Sell deriving (Eq, Show)
 
 class Token t where
   tokenName :: Proxy t -> String

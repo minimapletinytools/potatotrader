@@ -73,7 +73,6 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   order :: (BilaxyExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 Bilaxy)
   order ot (Amount t1) (Amount t2) = do
     let
-      -- TODO generalize this conversion function
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
       pproxy = Proxy :: Proxy (t1, t2, Bilaxy)
@@ -88,15 +87,32 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
         return undefined
       Right oid              -> return $ BilaxyOrder (BilaxyOrderDetails oid)
 
-type BilaxyFlipExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t2 t1, ExchangeToken t1 BilaxyFlip, ExchangeToken t2 BilaxyFlip)
+-- current implementation depends on ExchangePair t2 t1 Bilaxy and hence extra constraints
+type BilaxyFlipExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t2 t1, ExchangeToken t1 BilaxyFlip, ExchangeToken t2 BilaxyFlip, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 
 -- |
+-- UNTESTED
 instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyFlip where
   -- uses same pairId as unflipped version
   pairId _ = getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1)
   data Order t1 t2 BilaxyFlip = BilaxyFlipOrder BilaxyOrderDetails deriving (Show)
-  getStatus _ = undefined
+  getStatus (BilaxyFlipOrder o) = getStatus (BilaxyOrder o :: Order t2 t1 Bilaxy)
   canCancel _ = True
-  cancel _ = undefined
+  cancel (BilaxyFlipOrder o) = cancel (BilaxyOrder o :: Order t2 t1 Bilaxy)
   order :: (BilaxyFlipExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
-  order ot (Amount t1) (Amount t2) = undefined
+  order ot (Amount t1) (Amount t2) = do
+    let
+      t1proxy = Proxy :: Proxy t1
+      t2proxy = Proxy :: Proxy t2
+      pproxy = Proxy :: Proxy (t2, t1, Bilaxy)
+      amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
+      amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
+      price_t2 = amount_t2 / amount_t1
+      pair = pairId pproxy
+      ot' = if ot == Buy then Sell else Buy
+    v <- try (postOrder pair amount_t2 amount_t1 ot)
+    case v of
+      Left (SomeException e) -> do
+        print e
+        return undefined
+      Right oid              -> return $ BilaxyFlipOrder (BilaxyOrderDetails oid)
