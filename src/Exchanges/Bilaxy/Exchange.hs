@@ -1,4 +1,6 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies    #-}
+
 module Exchanges.Bilaxy.Exchange (
   Bilaxy(..),
   unBilaxyPair
@@ -10,14 +12,30 @@ import qualified Exchanges.Bilaxy.Aeson as BA
 import           Exchanges.Bilaxy.Query
 import           Types
 
+
+class (Token t1, Token t2) => RealBilaxyPair t1 t2 where
+  getPairId :: Proxy t1 -> Proxy t2 -> Int
+
+instance RealBilaxyPair TT USDT where
+  getPairId _ _ = 151
+
 data Bilaxy
 
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
-  data ExchangePairId Bilaxy = BilaxyTradingPair Int
+  type ExchangePairId Bilaxy = BilaxyTradingPair Int
 
 unBilaxyPair :: ExchangePairId Bilaxy -> Int
 unBilaxyPair (BilaxyTradingPair pair) = pair
+
+
+data BilaxyFlip
+
+instance Exchange BilaxyFlip where
+  exchangeName _ = "Bilaxy (flipped pairs)"
+  --data ExchangePairId BilaxyFlip = BilaxyFlipTradingPair Int
+  data ExchangePairId BilaxyFlip = ExchangePairId Bilaxy
+
 
 getBalanceHelper :: forall t e. (Token t, ExchangeToken t e) => Proxy (t,e) -> IO (Amount t)
 getBalanceHelper p = do
@@ -30,10 +48,18 @@ instance ExchangeToken TT Bilaxy where
 instance ExchangeToken USDT Bilaxy where
   getBalance = getBalanceHelper
 
-instance ExchangePair TT USDT Bilaxy where
-  pairId _ = BilaxyTradingPair 151
+instance ExchangeToken TT BilaxyFlip where
+  getBalance = getBalanceHelper
+
+instance ExchangeToken USDT BilaxyFlip where
+  getBalance = getBalanceHelper
+
+type BilaxyExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
+
+instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
+  pairId _ = BilaxyTradingPair (getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2))
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
-  data Order TT USDT Bilaxy = BilaxyOrder {
+  data Order t1 t2 Bilaxy = BilaxyOrder {
     orderId :: Int
   } deriving (Show)
   getStatus (BilaxyOrder oid) = do
@@ -47,20 +73,31 @@ instance ExchangePair TT USDT Bilaxy where
     case v of
       Left (SomeException _) -> return False
       Right oi               -> return True
-  order :: OrderType -> Amount TT -> Amount USDT -> IO (Order TT USDT Bilaxy)
-  order ot (Amount tt) (Amount usdt) = do
+  order :: (BilaxyExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 Bilaxy)
+  order ot (Amount t1) (Amount t2) = do
     let
       -- TODO generalize this conversion function
-      ttproxy = Proxy :: Proxy TT
-      usdtproxy = Proxy :: Proxy USDT
-      pproxy = Proxy :: Proxy (TT,USDT,Bilaxy)
-      amount_tt = fromIntegral tt / fromIntegral (decimals ttproxy)
-      amount_usdt = fromIntegral usdt / fromIntegral (decimals usdtproxy)
-      price_usdt = amount_usdt / amount_tt
+      t1proxy = Proxy :: Proxy t1
+      t2proxy = Proxy :: Proxy t2
+      pproxy = Proxy :: Proxy (t1, t2, Bilaxy)
+      amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
+      amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
+      price_t2 = amount_t2 / amount_t1
       BilaxyTradingPair pair = pairId pproxy
-    v <- try (postOrder pair amount_tt amount_usdt ot)
+    v <- try (postOrder pair amount_t1 amount_t2 ot)
     case v of
       Left (SomeException e) -> do
         print e
         return undefined
       Right oid              -> return $ BilaxyOrder oid
+
+-- |
+instance (BilaxyExchangePairConstraints t2 t1) => ExchangePair t1 t2 BilaxyFlip where
+  -- uses same pairId as unflipped version
+  pairId _ = BilaxyTradingPair (getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1))
+  data Order t1 t2 BilaxyFlip = BilaxyFlipOrder (Order t2 t1 Bilaxy)
+  getStatus _ = undefined
+  canCancel _ = True
+  cancel _ = undefined
+  order :: (BilaxyExchangePairConstraints t2 t1) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
+  order ot (Amount t1) (Amount t2) = undefined

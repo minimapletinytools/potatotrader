@@ -44,7 +44,7 @@ fromStdDenom x = Amount (x * decimals (Proxy :: Proxy t))
 
 class Exchange e where
   exchangeName :: Proxy e -> String
-  data ExchangePairId e :: *
+  type ExchangePairId e :: *
   -- TODO something like this? However, we either need to use mutable cache (doable since everything we need it for is IO) or have all types return the cache as well
   -- data ExchangeCache :: *
   -- TODO generalize account access to the exchange

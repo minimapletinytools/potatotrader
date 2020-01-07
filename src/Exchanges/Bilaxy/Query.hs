@@ -122,7 +122,6 @@ makeStandardResponseRequest gateway priv method path params = do
     200 -> return a
     _   -> error $ "bad return code: " ++ show code
 
-
 showBS :: (Show a) => a -> BS.ByteString
 showBS = BS.fromString . show
 
