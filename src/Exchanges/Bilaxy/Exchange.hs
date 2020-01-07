@@ -70,6 +70,9 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     case v of
       Left (SomeException _) -> return False
       Right oi               -> return True
+  getOrders = do
+    orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, Bilaxy))
+    return $ map (BilaxyOrder . BilaxyOrderDetails . BA.oi_id) orders
   order :: (BilaxyExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 Bilaxy)
   order ot (Amount t1) (Amount t2) = do
     let
@@ -99,6 +102,10 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
   getStatus (BilaxyFlipOrder o) = getStatus (BilaxyOrder o :: Order t2 t1 Bilaxy)
   canCancel _ = True
   cancel (BilaxyFlipOrder o) = cancel (BilaxyOrder o :: Order t2 t1 Bilaxy)
+  -- Note that this returns Bilaxy (not flip) orders too
+  getOrders = do
+    orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip))
+    return $ map (BilaxyFlipOrder . BilaxyOrderDetails . BA.oi_id) orders
   order :: (BilaxyFlipExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
   order ot (Amount t1) (Amount t2) = do
     let

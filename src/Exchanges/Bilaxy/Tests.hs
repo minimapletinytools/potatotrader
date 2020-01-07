@@ -39,6 +39,12 @@ test_getOrderInfo :: Test
 test_getOrderInfo = TestCase $
   assertThrows (getOrderInfo (-1))
 
+test_getOrders :: Test
+test_getOrders = TestCase $ do
+  orders <- getOrders :: IO [Order TT USDT Bilaxy]
+  print orders
+
+
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
 test_order_cancel :: Test

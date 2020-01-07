@@ -84,9 +84,13 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
     return $ Liquidity b1 b2
 
   data Order t1 t2 e :: *
+  -- | getOrders returns all unexecuted orders
+  getOrders :: IO [Order t1 t2 e]
+  getOrders = return []
   -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
   order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 e)
   getStatus :: Order t1 t2 e -> IO OrderStatus
+  -- TODO make this a parameter of the exchange, not the exchange pair?
   canCancel :: Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
   cancel :: Order t1 t2 e -> IO Bool
   cancel = undefined
