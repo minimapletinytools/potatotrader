@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -41,7 +42,19 @@ instance Network EthereumMain where
 
 -- helpers
 class (Token t, Network n) => ChainToken t n where
-  getBalanceOf :: Proxy (t,n) -> Address -> Amount t
+  tokenAddress :: Proxy(t,n) -> Maybe Address
+  tokenAddress _ = Nothing
+
+instance ChainToken TT ThunderCoreMain
+
+instance ChainToken USDT ThunderCoreMain where
+  tokenAddress _ = Just "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
+
+class (Token t1, Token t2, Network n) => Uniswap t1 t2 n where
+  uniswapAddress :: Proxy (t1,t2,n) -> Address
+
+instance Uniswap TT USDT ThunderCoreMain where
+  uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
 -- exchange
 data OnChain n
@@ -50,22 +63,20 @@ instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
   type ExchangePairId (OnChain n) = Address
 
--- TODO make this generic like you did with Bilaxy
 -- Token Exchanges
-instance (Exchange (OnChain n), Network n) => ExchangeToken TT (OnChain n) where
-  getBalance _ = Amount <$> Q.getBalance (rpc p) where
-    p = Proxy :: Proxy n
-
-ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
-instance (Exchange (OnChain n), Network n) => ExchangeToken USDT (OnChain n) where
-  getBalance _ = Amount <$> Q.getTokenBalance (rpc p) ttUSDT where
-    p = Proxy :: Proxy n
+type ExchangeTokenConstraint t n = (Token t, Exchange (OnChain n), Network n, ChainToken t n)
+instance ExchangeTokenConstraint t n => ExchangeToken t (OnChain n) where
+  getBalance _ = let url = rpc (Proxy :: Proxy n) in
+    case tokenAddress (Proxy :: Proxy (t,n)) of
+      Just addr -> Amount <$> Q.getTokenBalance url addr
+      Nothing   ->  Amount <$> Q.getBalance url
 
 
-instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) where
-  pairId _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
+type ExchangePairConstraint t1 t2 n = (ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap t1 t2 n)
+instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
+  pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
-  data Order TT USDT (OnChain n) = OnChainOrder {
+  data Order t1 t2 (OnChain n) = OnChainOrder {
     receipt :: TxReceipt
   }
 
@@ -78,11 +89,11 @@ instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) w
 
   canCancel _ = False
 
-  order :: OrderType -> Amount TT -> Amount USDT -> IO (Order TT USDT (OnChain n))
+  order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 (OnChain n))
   order ot (Amount tt) (Amount usdt) = do
     let
       nproxy = Proxy :: Proxy n
-      pproxy = Proxy :: Proxy (TT,USDT,OnChain n)
+      pproxy = Proxy :: Proxy (t1,t2,OnChain n)
       addr = pairId pproxy
       cid = chainId nproxy
       url = rpc nproxy
@@ -93,5 +104,5 @@ instance (Exchange (OnChain n), Network n) => ExchangePair TT USDT (OnChain n) w
       Left (SomeException _) -> undefined
       Right receipt          -> return $ OnChainOrder receipt
 
-  getExchangeRate :: Proxy (TT,USDT,OnChain n) -> IO (ExchangeRate TT USDT)
+  getExchangeRate :: Proxy (t1,t2,OnChain n) -> IO (ExchangeRate t1 t2)
   getExchangeRate _ = undefined
