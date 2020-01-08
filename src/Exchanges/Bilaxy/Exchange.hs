@@ -57,22 +57,28 @@ type BilaxyExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t
 
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
+
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
   data Order t1 t2 Bilaxy = BilaxyOrder BilaxyOrderDetails deriving (Show)
+
   getStatus (BilaxyOrder (BilaxyOrderDetails oid)) = do
     v <- try (getOrderInfo oid)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right oi               -> return . OrderStatus . BA.toOrderState . BA.oi_status $ oi
+
   canCancel _ = True
+
   cancel (BilaxyOrder (BilaxyOrderDetails oid)) = do
     v <- try (cancelOrder oid)
     case v of
       Left (SomeException _) -> return False
       Right oi               -> return True
+
   getOrders = do
     orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, Bilaxy))
     return $ map (BilaxyOrder . BilaxyOrderDetails . BA.oi_id) orders
+
   order :: (BilaxyExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 Bilaxy)
   order ot (Amount t1) (Amount t2) = do
     let
@@ -90,6 +96,17 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
         return undefined
       Right oid              -> return $ BilaxyOrder (BilaxyOrderDetails oid)
 
+  getExchangeRate :: Proxy (t1,t2,Bilaxy) -> IO (ExchangeRate t1 t2)
+  getExchangeRate pproxy = do
+    let
+      pair = pairId pproxy
+    depth <- getDepth pair
+    let
+      sellt1 (Amount t1) = Amount $ undefined
+      buyt1 (Amount t2) = Amount $ undefined
+      variance = undefined
+    return $ ExchangeRate sellt1 buyt1 variance
+
 -- current implementation depends on ExchangePair t2 t1 Bilaxy and hence extra constraints
 type BilaxyFlipExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPair t2 t1, ExchangeToken t1 BilaxyFlip, ExchangeToken t2 BilaxyFlip, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 
@@ -98,14 +115,20 @@ type BilaxyFlipExchangePairConstraints t1 t2 = (Token t1, Token t2, RealBilaxyPa
 instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyFlip where
   -- uses same pairId as unflipped version
   pairId _ = getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1)
+
   data Order t1 t2 BilaxyFlip = BilaxyFlipOrder BilaxyOrderDetails deriving (Show)
+
   getStatus (BilaxyFlipOrder o) = getStatus (BilaxyOrder o :: Order t2 t1 Bilaxy)
+
   canCancel _ = True
+
   cancel (BilaxyFlipOrder o) = cancel (BilaxyOrder o :: Order t2 t1 Bilaxy)
+
   -- Note that this returns Bilaxy (not flip) orders too
   getOrders = do
     orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip))
     return $ map (BilaxyFlipOrder . BilaxyOrderDetails . BA.oi_id) orders
+
   order :: (BilaxyFlipExchangePairConstraints t1 t2) => OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 BilaxyFlip)
   order ot (Amount t1) (Amount t2) = do
     let
@@ -123,3 +146,9 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
         print e
         return undefined
       Right oid              -> return $ BilaxyFlipOrder (BilaxyOrderDetails oid)
+
+  -- TODO test, not totally sure it's correct...
+  getExchangeRate :: Proxy (t1,t2,BilaxyFlip) -> IO (ExchangeRate t1 t2)
+  getExchangeRate _ = do
+    er <- getExchangeRate (Proxy :: Proxy (t2,t1,Bilaxy))
+    return $ ExchangeRate (buyt1 er) (sellt1 er) (flip $ variance er)
