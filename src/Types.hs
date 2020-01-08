@@ -36,10 +36,10 @@ data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 data OrderType = Buy | Sell deriving (Eq, Show)
 
 data ExchangeRate t1 t2 = ExchangeRate {
-  -- | t2Bought returns approx amount of t2 bought for input of t1
-  t2Bought   :: Amount t1 -> Amount t2
-  -- | t1Bought returns approx amount of t1 bought for input of t2
-  , t1Bought :: Amount t1 -> Amount t2
+  -- | sellt1 returns approx amount of t2 bought for input of t1
+  sellt1     :: Amount t1 -> Amount t2
+  -- | buyt1 returns approx amount of t1 bought for input of t2
+  , buyt1    :: Amount t1 -> Amount t2
   -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
   -- does not distinguish between buy/sell
   -- TODO this should probably return something like (TimeDiff -> Double)

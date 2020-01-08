@@ -21,7 +21,8 @@ module Exchanges.Chain.Query (
   getBalance,
   getTokenBalanceOf,
   getTokenBalance,
-  txEthToTokenSwap,
+  txEthToTokenSwapInput,
+  txTokenToEthSwapInput,
   getTransactionByHash
 ) where
 
@@ -133,14 +134,19 @@ getTransactionByHash url hash = do
     Nothing -> throwIO $ MissingError "tx not found"
     Just tx -> return tx
 
-txEthToTokenSwap ::
-  String
-  -> Integer
-  -> Address
-  -> Wei
-  -> Integer
+-- | txEthToTokenSwapInput
+-- calls the following function:
+-- def ethToTokenSwapInput(min_tokens: uint256, deadline: timestamp) -> uint256:
+-- (specify min tokens bought)
+-- (return value of evm call is number of tokens bought)
+txEthToTokenSwapInput ::
+  String -- ^ rpc url
+  -> Integer -- ^ chain id
+  -> Address -- ^ uniswap address
+  -> Wei -- ^ amount of wei to sell
+  -> Integer -- ^ min tokens to be bought
   -> IO TxReceipt
-txEthToTokenSwap url cid uniAddr amountEth minTokens = do
+txEthToTokenSwapInput url cid uniAddr amountEth minTokens = do
   (acct,_) <- getKeyPair cid
   blockTime <- doweb3stuff url $ do
     bn <- WEB3.blockNumber
@@ -152,8 +158,29 @@ txEthToTokenSwap url cid uniAddr amountEth minTokens = do
     . withParam (value .~ amountEth) $
       ethToTokenSwapInput (fromInteger minTokens) (fromInteger (blockTime + 100))
 
-
-
+-- | txTokenToEthSwapInput
+-- calls the following function:
+-- def tokenToEthSwapInput(tokens_sold: uint256, min_eth: uint256(wei), deadline: timestamp) -> uint256(wei):
+-- (specify min eth to buy)
+-- (return value of evm call is number of eth bought)
+-- TODO TEST
+txTokenToEthSwapInput ::
+  String -- ^ rpc url
+  -> Integer -- ^ chain id
+  -> Address -- ^ uniswap address
+  -> Integer -- ^ amount of tokens to sell
+  -> Wei -- ^ min wei to be bought
+  -> IO TxReceipt
+txTokenToEthSwapInput url cid uniAddr amountTokens minEth = do
+  (acct,_) <- getKeyPair cid
+  blockTime <- doweb3stuff url $ do
+    bn <- WEB3.blockNumber
+    bl <- WEB3.getBlockByNumber bn
+    return $ toInteger $ blockTimestamp bl
+  doweb3stuff url $
+    withAccount acct
+    . withParam (to .~ uniAddr) $
+      tokenToEthSwapInput (fromInteger amountTokens) (fromInteger (toWei minEth)) (fromInteger (blockTime + 100))
 
 
 
@@ -181,7 +208,7 @@ noFee :: UniFee
 noFee = (1,1)
 
 -- | calcInputPrice is just uniswap getInputPrice
--- input_amonut is amount being sold, returns amount bought
+-- input_amount is amount being sold, returns amount bought
 calcInputPrice :: UniFee -> Integer -> Integer -> Integer -> Integer
 calcInputPrice (fn, fd) input_amount input_reserve output_reserve = numerator `div` denominator where
   input_amount_with_fee = input_amount * fn

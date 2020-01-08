@@ -1,10 +1,14 @@
 {-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
+
 
 module Exchanges.Chain.Exchange (
   ThunderCoreMain(..),
@@ -50,10 +54,25 @@ instance ChainToken TT ThunderCoreMain
 instance ChainToken USDT ThunderCoreMain where
   tokenAddress _ = Just "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
 
-class (Token t1, Token t2, Network n) => Uniswap t1 t2 n where
+type family BaseToken t where
+  BaseToken TT = 'True
+  BaseToken USDT = 'False
+
+class (Token t1, Token t2) => Uniswap (flag :: Bool) t1 t2 where
+  -- |
+  -- exchanges t1 for t2 where input amount (t1) is fixed
+  t1t2SwapInput :: Proxy flag -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> IO TxReceipt
+
+instance (Token t1, Token t2) => Uniswap 'True t1 t2 where
+  t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+
+instance (Token t1, Token t2) => Uniswap 'False t1 t2 where
+  t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+
+class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
 
-instance Uniswap TT USDT ThunderCoreMain where
+instance UniswapNetwork TT USDT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
 -- exchange
@@ -71,8 +90,7 @@ instance ExchangeTokenConstraint t n => ExchangeToken t (OnChain n) where
       Just addr -> Amount <$> Q.getTokenBalance url addr
       Nothing   ->  Amount <$> Q.getBalance url
 
-
-type ExchangePairConstraint t1 t2 n = (ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap t1 t2 n)
+type ExchangePairConstraint t1 t2 n = (ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap (BaseToken t1) t1 t2, UniswapNetwork t1 t2 n)
 instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
@@ -90,7 +108,7 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   canCancel _ = False
 
   order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 (OnChain n))
-  order ot (Amount tt) (Amount usdt) = do
+  order ot t1 t2 = do
     let
       nproxy = Proxy :: Proxy n
       pproxy = Proxy :: Proxy (t1,t2,OnChain n)
@@ -98,11 +116,18 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       cid = chainId nproxy
       url = rpc nproxy
     v <- case ot of
-      Buy  -> try (Q.txEthToTokenSwap url cid addr (fromIntegral tt) (fromIntegral usdt))
+      -- TODO this only works for tt/usdt pairs
+      --Buy  -> try (Q.txEthToTokenSwapInput url cid addr (fromIntegral t1) (fromIntegral t2))
+      Buy  -> try (t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) url cid addr t1 t2)
       Sell -> undefined -- TODO
     case v of
       Left (SomeException _) -> undefined
       Right receipt          -> return $ OnChainOrder receipt
 
   getExchangeRate :: Proxy (t1,t2,OnChain n) -> IO (ExchangeRate t1 t2)
-  getExchangeRate _ = undefined
+  getExchangeRate _ = do
+    let
+      sellt1 = undefined
+      buyt1 = undefined
+      variance = undefined
+    return $ ExchangeRate sellt1 buyt1 variance

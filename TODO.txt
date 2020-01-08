@@ -1,5 +1,9 @@
-:: NEW TODO::
+::TODO::
+- add test cases for all the chain query stuff D:
+
+::FUTURE::
 - accounts should not be read in IO monad. They should be passed in as an argument for each private exchange function (using data family for type)
+- add mock interfaces for all IO monad calls for testing instead of actually querying exchanges...
 
 :: OLD NOTES ::
 
