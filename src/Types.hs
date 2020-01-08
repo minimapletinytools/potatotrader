@@ -39,7 +39,7 @@ data ExchangeRate t1 t2 = ExchangeRate {
   -- | sellt1 returns approx amount of t2 bought for input of t1
   sellt1     :: Amount t1 -> Amount t2
   -- | buyt1 returns approx amount of t1 bought for input of t2
-  , buyt1    :: Amount t1 -> Amount t2
+  , buyt1    :: Amount t2 -> Amount t1
   -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
   -- does not distinguish between buy/sell
   -- TODO this should probably return something like (TimeDiff -> Double)

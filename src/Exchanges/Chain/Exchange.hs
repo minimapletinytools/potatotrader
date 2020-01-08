@@ -75,6 +75,12 @@ class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
 instance UniswapNetwork TT USDT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
+getBalanceOf :: forall t n. (ChainToken t n, Network n) => Proxy (t,n) -> Address -> IO (Amount t)
+getBalanceOf _ acct = let url = rpc (Proxy :: Proxy n) in
+  case tokenAddress (Proxy :: Proxy (t,n)) of
+    Just addr -> Amount <$> Q.getTokenBalanceOf url addr acct
+    Nothing   ->  Amount <$> Q.getBalanceOf url acct
+
 -- exchange
 data OnChain n
 
@@ -86,11 +92,11 @@ instance (Network n) => Exchange (OnChain n) where
 type ExchangeTokenConstraint t n = (Token t, Exchange (OnChain n), Network n, ChainToken t n)
 instance ExchangeTokenConstraint t n => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
-    case tokenAddress (Proxy :: Proxy (t,n)) of
-      Just addr -> Amount <$> Q.getTokenBalance url addr
-      Nothing   ->  Amount <$> Q.getBalance url
+     case tokenAddress (Proxy :: Proxy (t,n)) of
+       Just addr -> Amount <$> Q.getTokenBalance url addr
+       Nothing   ->  Amount <$> Q.getBalance url
 
-type ExchangePairConstraint t1 t2 n = (ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap (BaseToken t1) t1 t2, UniswapNetwork t1 t2 n)
+type ExchangePairConstraint t1 t2 n = (Network n, ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap (BaseToken t1) t1 t2, Uniswap (BaseToken t2) t2 t1, UniswapNetwork t1 t2 n)
 instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
@@ -107,6 +113,7 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
 
   canCancel _ = False
 
+  -- TODO TEST
   order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 (OnChain n))
   order ot t1 t2 = do
     let
@@ -116,18 +123,26 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       cid = chainId nproxy
       url = rpc nproxy
     v <- case ot of
-      -- TODO this only works for tt/usdt pairs
-      --Buy  -> try (Q.txEthToTokenSwapInput url cid addr (fromIntegral t1) (fromIntegral t2))
       Buy  -> try (t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) url cid addr t1 t2)
-      Sell -> undefined -- TODO
+      Sell -> try (t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) url cid addr t2 t1)
     case v of
       Left (SomeException _) -> undefined
       Right receipt          -> return $ OnChainOrder receipt
 
+  -- TODO test
   getExchangeRate :: Proxy (t1,t2,OnChain n) -> IO (ExchangeRate t1 t2)
-  getExchangeRate _ = do
+  getExchangeRate pnproxy = do
     let
-      sellt1 = undefined
-      buyt1 = undefined
+      nproxy = Proxy :: Proxy n
+      t1nproxy = Proxy :: Proxy (t1,n)
+      t2nproxy = Proxy :: Proxy (t2,n)
+      uniAddr = pairId pnproxy
+      cid = chainId nproxy
+      url = rpc nproxy
+    Amount t1b <- getBalanceOf t1nproxy uniAddr
+    Amount t2b <- getBalanceOf t2nproxy uniAddr
+    let
+      sellt1 (Amount t1) = Amount $ Q.calcInputPrice Q.defaultFee t1 t1b t2b
+      buyt1 (Amount t2) = Amount $ Q.calcInputPrice Q.defaultFee t2 t2b t1b
       variance = undefined
     return $ ExchangeRate sellt1 buyt1 variance

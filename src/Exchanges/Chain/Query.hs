@@ -23,7 +23,12 @@ module Exchanges.Chain.Query (
   getTokenBalance,
   txEthToTokenSwapInput,
   txTokenToEthSwapInput,
-  getTransactionByHash
+  getTransactionByHash,
+
+  calcInputPrice,
+  UniFee(..),
+  defaultFee,
+  noFee
 ) where
 
 import           Control.Exception
@@ -204,6 +209,8 @@ traceParams :: (Show p,  Account p (AccountT p)) => AccountT p m a -> AccountT p
 traceParams = withParam (\x -> trace (paramsToString x) $ x)
 
 type UniFee = (Integer, Integer)
+defaultFee :: UniFee
+defaultFee = (997,1000)
 noFee :: UniFee
 noFee = (1,1)
 
