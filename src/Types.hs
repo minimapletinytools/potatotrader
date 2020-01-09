@@ -112,16 +112,17 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   -- | getExchangeRate returns the current exchange rate
   getExchangeRate :: Proxy (t1,t2,e) -> IO (ExchangeRate t1 t2)
 
-  data Order t1 t2 e :: *
+  type Order t1 t2 e :: *
   -- | getOrders returns all unexecuted orders
-  getOrders :: IO [Order t1 t2 e]
-  getOrders = return []
+  getOrders :: Proxy (t1,t2,e) -> IO [Order t1 t2 e]
+  getOrders _ = return []
   -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
-  order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 e)
-  getStatus :: Order t1 t2 e -> IO OrderStatus
+  order :: Proxy (t1,t2,e) -> OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 e)
+  getStatus :: Proxy (t1,t2,e) -> Order t1 t2 e -> IO OrderStatus
   -- TODO make this a parameter of the exchange, not the exchange pair?
-  canCancel :: Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
-  cancel :: Order t1 t2 e -> IO Bool
+  canCancel :: Proxy (t1,t2,e) -> Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
+  canCancel _ _ = False
+  cancel :: Proxy (t1,t2,e) -> Order t1 t2 e -> IO Bool
   cancel = undefined
 
 

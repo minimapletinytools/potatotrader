@@ -41,7 +41,7 @@ test_getOrderInfo = TestCase $
 
 test_getOrders :: Test
 test_getOrders = TestCase $ do
-  orders <- getOrders :: IO [Order TT USDT Bilaxy]
+  orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy))
   print orders
 
 test_getExchangeRate :: Test
@@ -53,8 +53,9 @@ test_getExchangeRate = TestCase $ do
 -- uses a very very high sell price so unlikely to actually go through
 test_order_cancel :: Test
 test_order_cancel = TestCase $ do
-  o <- order Sell (fromStdDenom 9) (fromStdDenom 123) :: IO (Order TT USDT Bilaxy)
-  r <- cancel o
+  let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
+  o <- order p Sell (fromStdDenom 9) (fromStdDenom 123)
+  r <- cancel p o
   print (o, r)
 
 

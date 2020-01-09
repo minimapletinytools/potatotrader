@@ -89,6 +89,10 @@ instance (Network n) => Exchange (OnChain n) where
   type ExchangePairId (OnChain n) = Address
 
 -- Token Exchanges
+data OnChainOrder = OnChainOrder {
+  receipt :: TxReceipt
+}
+
 type ExchangeTokenConstraint t n = (Token t, Exchange (OnChain n), Network n, ChainToken t n)
 instance ExchangeTokenConstraint t n => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
@@ -100,22 +104,17 @@ type ExchangePairConstraint t1 t2 n = (Network n, ExchangeTokenConstraint t1 n, 
 instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
-  data Order t1 t2 (OnChain n) = OnChainOrder {
-    receipt :: TxReceipt
-  }
+  type Order t1 t2 (OnChain n) = OnChainOrder
 
-  getStatus (OnChainOrder receipt) = do
+  getStatus _ (OnChainOrder receipt) = do
     let url = rpc (Proxy :: Proxy n)
     v <- try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right _                -> return $ OrderStatus Executed
 
-  canCancel _ = False
-
   -- TODO TEST
-  order :: OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 (OnChain n))
-  order ot t1 t2 = do
+  order _ ot t1 t2 = do
     let
       nproxy = Proxy :: Proxy n
       pproxy = Proxy :: Proxy (t1,t2,OnChain n)

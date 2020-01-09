@@ -19,10 +19,13 @@ doArbitrage proxy = do
 
   -- query and cancel all orders
   qncresult <- liftIO . try $ do
-    e1orders <- getOrders :: IO [Order t1 t2 e1]
-    e2orders <- getOrders :: IO [Order t1 t2 e2]
-    mapM_ cancel e1orders
-    mapM_ cancel e2orders
+    let
+      pe1 = (Proxy :: Proxy (t1,t2,e1))
+      pe2 = (Proxy :: Proxy (t1,t2,e2))
+    e1orders <- getOrders pe1
+    e2orders <- getOrders pe2
+    mapM_ (cancel pe1) e1orders
+    mapM_ (cancel pe2) e2orders
   case qncresult of
     -- TODO log and error and restart
     Left (SomeException e) -> return ()
