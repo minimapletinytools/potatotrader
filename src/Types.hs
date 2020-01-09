@@ -35,6 +35,8 @@ newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 data OrderType = Buy | Sell deriving (Eq, Show)
 
+-- TODO maybe make this into a type class so that you can have something like buyt2 = sellt1
+-- TODO these methods do not consider the case where there is not enough market to complete the order thus not all of input is spent for output
 data ExchangeRate t1 t2 = ExchangeRate {
   -- | sellt1 returns approx amount of t2 bought for input of t1
   sellt1     :: Amount t1 -> Amount t2
@@ -45,6 +47,7 @@ data ExchangeRate t1 t2 = ExchangeRate {
   -- TODO this should probably return something like (TimeDiff -> Double)
   , variance :: Amount t1 -> Amount t2 -> Double
 }
+
 
 class Token t where
   tokenName :: Proxy t -> String

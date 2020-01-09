@@ -102,6 +102,7 @@ instance FromJSON MarketOrder where
     let v = fmap parseJSON v'
     MarketOrder <$> (v ! 0) <*> (v ! 1) <*> (v ! 2)
 
+
 data MarketDepth = MarketDepth {
   asks   :: [MarketOrder]
   , bids :: [MarketOrder]
