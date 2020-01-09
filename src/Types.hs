@@ -48,6 +48,16 @@ data ExchangeRate t1 t2 = ExchangeRate {
   , variance :: Amount t1 -> Amount t2 -> Double
 }
 
+instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
+  show (ExchangeRate sellt1' buyt1' variance') = output where
+    amounts = map (10^) [0..5]
+    unAmount (Amount x) = x
+    sellChart = map (unAmount . sellt1' . Amount) amounts
+    buyChart = map (unAmount . buyt1' . Amount) amounts
+    output = "sell: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts sellChart) ++ "\n"
+      ++ "buy: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts buyChart) ++ "\n"
+
+
 
 class Token t where
   tokenName :: Proxy t -> String

@@ -42,13 +42,13 @@ doArbitrage proxy = do
 
   -- query exchange rate
   erresult <- liftIO . try $ do
-    er1 <- getExchangeRate (Proxy :: Proxy t1 t2 e1)
-    er2 <- getExchangeRate (Proxy :: Proxy t1 t2 e2)
-    return (re1, re2)
+    er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1))
+    er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2))
+    return (er1, er2)
   (er1, er2) <- case erresult of
     -- TODO log and error and restart
     Left (SomeException e) -> undefined
-    Right r -> return r
+    Right r                -> return r
 
   let
     sellt1_e1 = sellt1 er1
@@ -59,13 +59,13 @@ doArbitrage proxy = do
 
   -- assume 0 tx fees for now
   -- arbitrage t1 means exchange t1->t2 in e1 and t2->t1 in e2
-  profit_t1 = (buyt1_e2 (sellt1_e1 t1x) - t1x)
+  --profit_t1 = (buyt1_e2 (sellt1_e1 t1x) - t1x)
   -- arbitrage t2 means exchange t2->t1 in e1 and t1->t2 in e2
-  profit_t2 =
+  --profit_t2 =
 
 
 
-
+{-
     data ExchangeRate t1 t2 = ExchangeRate {
       -- | sellt1 returns approx amount of t2 bought for input of t1
       sellt1     :: Amount t1 -> Amount t2
@@ -76,7 +76,7 @@ doArbitrage proxy = do
       -- TODO this should probably return something like (TimeDiff -> Double)
       , variance :: Amount t1 -> Amount t2 -> Double
     }
-
+-}
   -- check if arbitrage opportunity exists
 
 

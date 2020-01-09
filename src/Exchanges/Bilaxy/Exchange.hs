@@ -7,8 +7,8 @@ module Exchanges.Bilaxy.Exchange (
 ) where
 
 import           Control.Exception
+import           Data.List              (mapAccumL)
 import           Data.Proxy
-import Data.List (mapAccumL)
 import qualified Exchanges.Bilaxy.Aeson as BA
 import           Exchanges.Bilaxy.Query
 import           Types
@@ -103,24 +103,26 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       pair = pairId pproxy
     depth <- getDepth pair
     let
-      t1d = decimals (Proxy :: Proxy t1)
-      t2d = decimals (Proxy :: Proxy t2)
+      t1d = fromInteger $ decimals (Proxy :: Proxy t1)
+      t2d = fromInteger $ decimals (Proxy :: Proxy t2)
       -- TODO check this is correct
       -- asks are people trying to sell t2 for t1
-      asks = map (\(BA.MarketOrder p v _) -> (p*t2d, v*t1d)) $ BA.asks depth
+      asks = map (\(BA.MarketOrder p v _) -> (ceiling $ p*t2d, floor $ v*t1d)) $ BA.asks depth
       -- bids are people trying to buy t2 with t1
       bids = BA.bids depth
     let
       -- TODO test
-      sellt1 (Amount t1) = Amount $ undefined where
+      sellt1 (Amount t1) = Amount $ r where
+        func :: Integer -> (Integer, Integer) -> (Integer, Integer)
         func remainingt1 (price, volume) = (remainingt1-paidt1, boughtt2) where
           boughtt2 = min (remainingt1 `div` price) volume
-          paidt1 = BA.price b * boughtt2
+          paidt1 = price * boughtt2
         (remaining, boughtt2Array) = mapAccumL func t1 asks
         -- TODO log a warning if remaining > 0 (means we bought the whole market and had some left over)
         boughtt2Executed = takeWhile (> 0) boughtt2Array
-        r = foldl (\acc (_,bought) -> acc + bought) 0 boughtt2Executed
-      buyt1 (Amount t2) = Amount $ undefined
+        r = foldl (+) 0 boughtt2Executed
+      -- TODO
+      buyt1 (Amount t2) = Amount $ 0
       variance = undefined
     return $ ExchangeRate sellt1 buyt1 variance
 

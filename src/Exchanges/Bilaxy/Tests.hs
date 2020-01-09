@@ -44,6 +44,10 @@ test_getOrders = TestCase $ do
   orders <- getOrders :: IO [Order TT USDT Bilaxy]
   print orders
 
+test_getExchangeRate :: Test
+test_getExchangeRate = TestCase $ do
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy))
+  print r
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
@@ -65,5 +69,7 @@ tests = hspec $
       fromHUnitTest test_getBalance
     describe "getOrderInfo" $
       fromHUnitTest test_getOrderInfo
+    describe "getExchangeRate" $
+      fromHUnitTest test_getExchangeRate
     describe "order_cancel" $
       fromHUnitTest test_order_cancel

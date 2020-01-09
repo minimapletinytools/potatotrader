@@ -21,10 +21,17 @@ test_getAddress = TestCase $ do
   r <- getAddress
   "0xc06Bd3dC3f6Ce518B55bDC469b1A8B81CBEaDc62" @?= r
 
+test_getExchangeRate :: Test
+test_getExchangeRate = TestCase $ do
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain))
+  print r
+
 tests :: IO ()
 tests = hspec $
   describe "Chain" $ do
     describe "getBalance" $
       fromHUnitTest test_getBalance
-    describe "Address" $
+    describe "getExchangeRate" $
+      fromHUnitTest test_getExchangeRate
+    describe "getAddress" $
       fromHUnitTest test_getAddress
