@@ -66,6 +66,7 @@ dependencies:
 - HUnit
 - hspec-contrib
 - mtl
+- exceptions
 
 library:
   source-dirs: src

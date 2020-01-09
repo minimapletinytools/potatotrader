@@ -1,3 +1,4 @@
+--{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -14,10 +15,12 @@ module Exchanges.Chain.Exchange (
   ThunderCoreMain(..),
   EthereumMain(..),
 
-  OnChain(..)
+  OnChain(..),
+  ChainCtx
 ) where
 
 import           Control.Exception
+import           Control.Monad.IO.Class
 import           Data.Proxy
 import           Data.Solidity.Prim.Address (Address)
 import qualified Exchanges.Chain.Query      as Q
@@ -45,6 +48,11 @@ instance Network EthereumMain where
   chainId _ = 1
 
 -- helpers
+type ChainCtx n = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
+instance (Exchange (OnChain n)) => ExchangeCtx (OnChain n) (ChainCtx n) where
+  cache = fst
+  account = snd
+
 class (Token t, Network n) => ChainToken t n where
   tokenAddress :: Proxy(t,n) -> Maybe Address
   tokenAddress _ = Nothing
@@ -58,16 +66,18 @@ type family BaseToken t where
   BaseToken TT = 'True
   BaseToken USDT = 'False
 
-class (Token t1, Token t2) => Uniswap (flag :: Bool) t1 t2 where
+class (Token t1, Token t2, Network n) => Uniswap (isbase :: Bool) t1 t2 n where
   -- |
   -- exchanges t1 for t2 where input amount (t1) is fixed
-  t1t2SwapInput :: Proxy flag -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> IO TxReceipt
+  -- TODO remove chainid url and token arguments, no longer needed
+  -- not sure why Proxy (isbase,n) doesn't work...
+  t1t2SwapInput :: forall ex m. (MonadExchange (OnChain n) (ChainCtx n) m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> m (Either ex TxReceipt)
 
-instance (Token t1, Token t2) => Uniswap 'True t1 t2 where
-  t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+instance (Token t1, Token t2, Network n) => Uniswap 'True t1 t2 n where
+  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
-instance (Token t1, Token t2) => Uniswap 'False t1 t2 where
-  t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+instance (Token t1, Token t2, Network n) => Uniswap 'False t1 t2 n where
+  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
 class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
@@ -75,11 +85,11 @@ class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
 instance UniswapNetwork TT USDT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
-getBalanceOf :: forall t n. (ChainToken t n, Network n) => Proxy (t,n) -> Address -> IO (Amount t)
+getBalanceOf :: forall t n m. (MonadExchange (OnChain n) (ChainCtx n) m, ChainToken t n, Network n) => Proxy (t,n) -> Address -> m (Amount t)
 getBalanceOf _ acct = let url = rpc (Proxy :: Proxy n) in
   case tokenAddress (Proxy :: Proxy (t,n)) of
-    Just addr -> Amount <$> Q.getTokenBalanceOf url addr acct
-    Nothing   ->  Amount <$> Q.getBalanceOf url acct
+    Just addr -> liftIO $ Amount <$> Q.getTokenBalanceOf url addr acct
+    Nothing   ->  liftIO $ Amount <$> Q.getBalanceOf url acct
 
 -- exchange
 data OnChain n
@@ -87,6 +97,8 @@ data OnChain n
 instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
   type ExchangePairId (OnChain n) = Address
+  type ExchangeCache (OnChain n) = ()
+  type ExchangeAccount (OnChain n) = ()
 
 -- Token Exchanges
 data OnChainOrder = OnChainOrder {
@@ -97,10 +109,10 @@ type ExchangeTokenConstraint t n = (Token t, Exchange (OnChain n), Network n, Ch
 instance ExchangeTokenConstraint t n => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
-       Just addr -> Amount <$> Q.getTokenBalance url addr
-       Nothing   ->  Amount <$> Q.getBalance url
+       Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
+       Nothing   -> liftIO $ Amount <$> Q.getBalance url
 
-type ExchangePairConstraint t1 t2 n = (Network n, ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap (BaseToken t1) t1 t2, Uniswap (BaseToken t2) t2 t1, UniswapNetwork t1 t2 n)
+type ExchangePairConstraint t1 t2 n = (Network n, ExchangeTokenConstraint t1 n, ExchangeTokenConstraint t2 n, Uniswap (BaseToken t1) t1 t2 n, Uniswap (BaseToken t2) t2 t1 n, UniswapNetwork t1 t2 n)
 instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
@@ -108,7 +120,7 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
 
   getStatus _ (OnChainOrder receipt) = do
     let url = rpc (Proxy :: Proxy n)
-    v <- try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
+    v <- liftIO $ try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right _                -> return $ OrderStatus Executed
@@ -122,14 +134,13 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       cid = chainId nproxy
       url = rpc nproxy
     v <- case ot of
-      Buy  -> try (t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) url cid addr t1 t2)
-      Sell -> try (t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) url cid addr t2 t1)
+      Buy  -> t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) nproxy url cid addr t1 t2
+      Sell -> t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) nproxy url cid addr t2 t1
     case v of
       Left (SomeException _) -> undefined
       Right receipt          -> return $ OnChainOrder receipt
 
   -- TODO test
-  getExchangeRate :: Proxy (t1,t2,OnChain n) -> IO (ExchangeRate t1 t2)
   getExchangeRate pnproxy = do
     let
       nproxy = Proxy :: Proxy n

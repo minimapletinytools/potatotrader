@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NumDecimals                #-}
@@ -13,6 +14,8 @@ module Types (
 
   Token(..),
   fromStdDenom,
+  ExchangeCtx,
+  MonadExchange,
   Exchange(..),
   ExchangeToken(..),
   ExchangePair(..),
@@ -26,6 +29,9 @@ module Types (
   SAI(..)
 ) where
 
+import           Control.Monad.Catch
+import           Control.Monad.IO.Class
+import           Control.Monad.Reader
 import           Data.Proxy
 import           Data.Solidity.Prim.Address (Address)
 
@@ -57,8 +63,6 @@ instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
     output = "sell: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts sellChart) ++ "\n"
       ++ "buy: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts buyChart) ++ "\n"
 
-
-
 class Token t where
   tokenName :: Proxy t -> String
   decimals :: Proxy t -> Integer
@@ -71,9 +75,12 @@ class Exchange e where
   exchangeName :: Proxy e -> String
   type ExchangePairId e :: *
   -- TODO something like this? However, we either need to use mutable cache (doable since everything we need it for is IO) or have all types return the cache as well
-  -- data ExchangeCache :: *
+  type ExchangeCache e :: *
   -- TODO generalize account access to the exchange
-  -- data ExchangeAccount e :: *
+  type ExchangeAccount e :: *
+
+type ExchangeCtx e = (ExchangeCache e, ExchangeAccount e)
+type MonadExchange e m = (MonadThrow m, MonadIO m, MonadReader (ExchangeCtx e) m)
 
 class (Token t, Exchange e) => ExchangeToken t e where
   -- TODO probably don't need this, it's encapsulated by getBalance
@@ -81,7 +88,7 @@ class (Token t, Exchange e) => ExchangeToken t e where
   symbol :: Proxy (t,e) -> String
   symbol _ = tokenName (Proxy :: Proxy t)
   -- get balance (normalized to lowest denomination)
-  getBalance :: Proxy (t,e) -> IO (Amount t)
+  getBalance :: (MonadExchange e m) => Proxy (t,e) -> m (Amount t)
 
 
 data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Show)
@@ -103,26 +110,26 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   -- | liquidity returns your respective balance in the two tokens
   -- TODO is this the right name for it?
   -- TODO probably just delete this function, there's no reason an exchange would override this implementation
-  liquidity :: Proxy (t1,t2,e) -> IO (Liquidity t1 t2)
+  liquidity :: (MonadExchange e m) => Proxy (t1,t2,e) -> m (Liquidity t1 t2)
   liquidity _ = do
     b1 <- getBalance (Proxy :: Proxy (t1, e))
     b2 <- getBalance (Proxy :: Proxy (t2, e))
     return $ Liquidity b1 b2
 
   -- | getExchangeRate returns the current exchange rate
-  getExchangeRate :: Proxy (t1,t2,e) -> IO (ExchangeRate t1 t2)
+  getExchangeRate :: (MonadExchange e m) => Proxy (t1,t2,e) -> m (ExchangeRate t1 t2)
 
   type Order t1 t2 e :: *
   -- | getOrders returns all unexecuted orders
-  getOrders :: Proxy (t1,t2,e) -> IO [Order t1 t2 e]
+  getOrders :: (MonadExchange e m) => Proxy (t1,t2,e) -> m [Order t1 t2 e]
   getOrders _ = return []
   -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
-  order :: Proxy (t1,t2,e) -> OrderType -> Amount t1 -> Amount t2 -> IO (Order t1 t2 e)
-  getStatus :: Proxy (t1,t2,e) -> Order t1 t2 e -> IO OrderStatus
+  order :: (MonadExchange e m) => Proxy (t1,t2,e) -> OrderType -> Amount t1 -> Amount t2 -> m (Order t1 t2 e)
+  getStatus :: (MonadExchange e m) => Proxy (t1,t2,e) -> Order t1 t2 e -> m OrderStatus
   -- TODO make this a parameter of the exchange, not the exchange pair?
   canCancel :: Proxy (t1,t2,e) -> Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
   canCancel _ _ = False
-  cancel :: Proxy (t1,t2,e) -> Order t1 t2 e -> IO Bool
+  cancel :: (MonadExchange e m) => Proxy (t1,t2,e) -> Order t1 t2 e -> m Bool
   cancel = undefined
 
 

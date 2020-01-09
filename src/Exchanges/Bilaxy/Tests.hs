@@ -3,6 +3,8 @@ module Exchanges.Bilaxy.Tests (
 ) where
 
 import           Control.Exception
+import qualified Control.Monad.Catch       as C
+import           Control.Monad.Reader
 import           Data.Proxy
 import           Exchanges.Bilaxy.Exchange
 import           Exchanges.Bilaxy.Query
@@ -11,13 +13,19 @@ import           Test.Hspec.Contrib.HUnit  (fromHUnitTest)
 import           Test.HUnit
 import           Types
 
-assertThrows :: IO a -> IO ()
+type BilaxyReaderIO = ReaderT BilaxyCtx IO
+bilaxyCtx = ((),())
+
+flipReaderT = flip runReaderT
+
+assertThrows :: (MonadIO m, C.MonadCatch m) => m a -> m ()
 assertThrows action = do
-  v <- try action
+  v <- C.try action
   case v of
     Left (SomeException _) -> return ()
-    Right _                -> assertFailure "expected exception"
+    Right _                -> liftIO $ assertFailure "expected exception"
 
+-- test methods in Query.hs directly
 testPublic :: Test
 testPublic = TestCase $ do
   r <- getTicker $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
@@ -29,34 +37,35 @@ testPrivate = TestCase $ do
   b2 <- getBalanceOf (tokenName (Proxy :: Proxy USDT))
   print (b1,b2) -- not best way to force b1/b2 but whatever
 
+-- test class methods in Exchange.hs
 test_getBalance :: Test
-test_getBalance = TestCase $ do
+test_getBalance = TestCase $ flipReaderT bilaxyCtx $ do
   b1 <- getBalance (Proxy :: Proxy (TT, Bilaxy))
   b2 <- getBalance (Proxy :: Proxy (USDT, Bilaxy))
-  print (b1,b2) -- not best way to force b1/b2 but whatever
+  liftIO $ print (b1,b2) -- not best way to force b1/b2 but whatever
 
 test_getOrderInfo :: Test
-test_getOrderInfo = TestCase $
-  assertThrows (getOrderInfo (-1))
+test_getOrderInfo = TestCase $ flipReaderT bilaxyCtx $
+  assertThrows (liftIO $ getOrderInfo (-1))
 
 test_getOrders :: Test
-test_getOrders = TestCase $ do
+test_getOrders = TestCase $ flipReaderT bilaxyCtx $ do
   orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy))
-  print orders
+  liftIO $ print orders
 
 test_getExchangeRate :: Test
-test_getExchangeRate = TestCase $ do
+test_getExchangeRate = TestCase $ flipReaderT bilaxyCtx $ do
   r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy))
-  print r
+  liftIO $ print r
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
 test_order_cancel :: Test
-test_order_cancel = TestCase $ do
+test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
   let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
   o <- order p Sell (fromStdDenom 9) (fromStdDenom 123)
   r <- cancel p o
-  print (o, r)
+  liftIO $ print (o, r)
 
 
 tests :: IO ()

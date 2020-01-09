@@ -3,10 +3,12 @@
 
 module Exchanges.Bilaxy.Exchange (
   Bilaxy(..),
+  BilaxyCtx,
   BilaxyOrderDetails(..)
 ) where
 
 import           Control.Exception
+import           Control.Monad.IO.Class
 import           Data.List              (mapAccumL)
 import           Data.Proxy
 import qualified Exchanges.Bilaxy.Aeson as BA
@@ -22,20 +24,36 @@ instance RealBilaxyPair TT USDT where
 
 data Bilaxy
 
+type BilaxyAccount = ()
+type BilaxyCache = ()
+
+type BilaxyCtx = (BilaxyCache, BilaxyAccount)
+
+instance ExchangeCtx Bilaxy BilaxyCtx where
+  cache = fst
+  account = snd
+
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
   type ExchangePairId Bilaxy = Int
+  type ExchangeCache Bilaxy = BilaxyCache
+  type ExchangeAccount Bilaxy = BilaxyAccount
 
 data BilaxyFlip
+
+instance ExchangeCtx BilaxyFlip BilaxyCtx where
+  cache = fst
+  account = snd
 
 instance Exchange BilaxyFlip where
   exchangeName _ = "Bilaxy (flipped pairs)"
   type ExchangePairId BilaxyFlip = Int
+  type ExchangeCache BilaxyFlip = BilaxyCache
+  type ExchangeAccount BilaxyFlip = BilaxyAccount
 
-
-getBalanceHelper :: forall t e. (Token t, ExchangeToken t e) => Proxy (t,e) -> IO (Amount t)
+getBalanceHelper :: forall t e m. (MonadExchange e BilaxyCtx m, Token t, ExchangeToken t e) => Proxy (t,e) -> m (Amount t)
 getBalanceHelper p = do
-  b <- getBalanceOf $ symbol p
+  b <- liftIO $ getBalanceOf $ symbol p
   return . Amount . floor $ fromIntegral (decimals (Proxy :: Proxy t)) * b
 
 instance ExchangeToken TT Bilaxy where
@@ -63,7 +81,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   type Order t1 t2 Bilaxy = BilaxyOrderDetails
 
   getStatus _ (BilaxyOrderDetails oid) = do
-    v <- try (getOrderInfo oid)
+    v <- liftIO $ try (getOrderInfo oid)
     case v of
       Left (SomeException _) -> return $ OrderStatus Missing
       Right oi               -> return . OrderStatus . BA.toOrderState . BA.oi_status $ oi
@@ -71,13 +89,13 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   canCancel _ _ = True
 
   cancel _ (BilaxyOrderDetails oid) = do
-    v <- try (cancelOrder oid)
+    v <- liftIO $ try (cancelOrder oid)
     case v of
       Left (SomeException _) -> return False
       Right oi               -> return True
 
   getOrders _ = do
-    orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, Bilaxy))
+    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1, t2, Bilaxy))
     return $ map (BilaxyOrderDetails . BA.oi_id) orders
 
   order _ ot (Amount t1) (Amount t2) = do
@@ -89,18 +107,17 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
       price_t2 = amount_t2 / amount_t1
       pair = pairId pproxy
-    v <- try (postOrder pair amount_t1 amount_t2 ot)
+    v <- liftIO $ try (postOrder pair amount_t1 amount_t2 ot)
     case v of
       Left (SomeException e) -> do
-        print e
+        liftIO $ print e
         return undefined
       Right oid              -> return $ BilaxyOrderDetails oid
 
-  getExchangeRate :: Proxy (t1,t2,Bilaxy) -> IO (ExchangeRate t1 t2)
   getExchangeRate pproxy = do
     let
       pair = pairId pproxy
-    depth <- getDepth pair
+    depth <- liftIO $ getDepth pair
     let
       t1d = fromInteger $ decimals (Proxy :: Proxy t1)
       t2d = fromInteger $ decimals (Proxy :: Proxy t2)
@@ -147,7 +164,7 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
 
   -- Note that this returns Bilaxy (not flip) orders too
   getOrders _ = do
-    orders <- getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip))
+    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip))
     return $ map (BilaxyOrderDetails . BA.oi_id) orders
 
   order _ ot (Amount t1) (Amount t2) = do
@@ -160,15 +177,14 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
       price_t2 = amount_t2 / amount_t1
       pair = pairId pproxy
       ot' = if ot == Buy then Sell else Buy
-    v <- try (postOrder pair amount_t2 amount_t1 ot)
+    v <- liftIO $ try (postOrder pair amount_t2 amount_t1 ot)
     case v of
       Left (SomeException e) -> do
-        print e
+        liftIO $ print e
         return undefined
       Right oid              -> return $ BilaxyOrderDetails oid
 
   -- TODO test, not totally sure it's correct...
-  getExchangeRate :: Proxy (t1,t2,BilaxyFlip) -> IO (ExchangeRate t1 t2)
   getExchangeRate _ = do
     er <- getExchangeRate (Proxy :: Proxy (t2,t1,Bilaxy))
     return $ ExchangeRate (buyt1 er) (sellt1 er) (flip $ variance er)
