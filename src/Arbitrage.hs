@@ -62,24 +62,28 @@ lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
 lifte2 :: ReaderT r m a -> ReaderT (b, r) m a
 lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
 
+
+-- TODO move to a different file
+-- | cancels all unexecuted or partially executed orders
+cancelAllOrders :: (ExchangePair t1 t2 e, MonadExchange m) => Proxy (t1, t2, e) -> ExchangeT e m ()
+cancelAllOrders p = do
+  orders <- getOrders p
+  mapM_ (cancel p) orders
+
+-- | check for arbitrage opportunities and submits orders if profitable
+-- returns orders submitted
 doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs (ExchangePairT e1 e2 m)) =>
   Proxy (t1, t2, e1, e2)
   -> ExchangePairT e1 e2 m ()
-doArbitrage proxy = do
+doArbitrage _ = do
 
   -- query and cancel all orders
   qncresult <- try $ do
     let
       pe1 = Proxy :: Proxy (t1,t2,e1)
       pe2 = Proxy :: Proxy (t1,t2,e2)
-    --(c1,c2) <- ask
-    --e1orders <- ReaderT $ const $ flip runReaderT c1 $ getOrders pe1
-    lifte1 $ do
-      e1orders <- getOrders pe1
-      mapM_ (cancel pe1) e1orders
-    lifte2 $ do
-      e2orders <- getOrders pe2
-      mapM_ (cancel pe2) e2orders
+    lifte1 (cancelAllOrders pe1)
+    lifte2 (cancelAllOrders pe2)
   case qncresult of
     -- TODO log and error and restart
     Left (SomeException e) -> return ()
