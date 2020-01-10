@@ -39,10 +39,15 @@ import           Data.Solidity.Prim.Address (Address)
 newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real)
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
+
+-- | the type of order
+-- for a token pair `t1,t2`, `Buy` and `Sell` refers to buying and selling `t1` respectively
 data OrderType = Buy | Sell deriving (Eq, Show)
 
 -- TODO maybe make this into a type class so that you can have something like buyt2 = sellt1
 -- TODO these methods do not consider the case where there is not enough market to complete the order thus not all of input is spent for output
+-- | Data type that abstracts exchange rates as functions
+-- The interface is likely to be upgraded in the future as thu current design is limited
 data ExchangeRate t1 t2 = ExchangeRate {
   -- | sellt1 returns approx amount of t2 bought for input of t1
   sellt1     :: Amount t1 -> Amount t2
@@ -54,6 +59,7 @@ data ExchangeRate t1 t2 = ExchangeRate {
   , variance :: Amount t1 -> Amount t2 -> Double
 }
 
+-- | not an especially pretty implementation, just for debugging purposes
 instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
   show (ExchangeRate sellt1' buyt1' variance') = output where
     amounts = map (10^) [0..5]
@@ -63,22 +69,32 @@ instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
     output = "sell: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts sellChart) ++ "\n"
       ++ "buy: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts buyChart) ++ "\n"
 
+-- | A class for tradeable tokens
 class Token t where
   tokenName :: Proxy t -> String
   decimals :: Proxy t -> Integer
 
--- | fromStdDenom converts currency in standard demonation to base demonation
+-- | converts currency from standard demonation to base demonation
 fromStdDenom :: forall t. (Token t) => Integer -> Amount t
 fromStdDenom x = Amount (x * decimals (Proxy :: Proxy t))
 
+-- | A class for exchanges
 class Exchange e where
+  -- | the name of the exchange
   exchangeName :: Proxy e -> String
+  -- | type family for the exchange (trading) pair id
+  -- For example, for a on chain uniswap exchange, the pair id is the uniswap contract address
   type ExchangePairId e :: *
-  -- TODO something like this? However, we either need to use mutable cache (doable since everything we need it for is IO) or have all types return the cache as well
+  -- | intended to store mutable references for stuff like caches and connection analytics or whatever
   type ExchangeCache e :: *
   -- TODO generalize account access to the exchange
+  -- | private account access to exchange API
   type ExchangeAccount e :: *
 
+-- | A class to allow abstract access to `ExchangeCache e` and `ExchangeAccount e` for some `Exchange e`
+-- this is necessary for abstracting to `MonadReader` in situations where we want to work with more than one exchange.
+-- For example, when arbitraging, we want to trade in two different exchanges within the same mtl stack.
+-- See examples in "Arbitrage" for more details
 class (Exchange e) => ExchangeCtx e c where
   cache :: c -> ExchangeCache e
   account :: c -> ExchangeAccount e
@@ -88,57 +104,77 @@ class (Exchange e) => ExchangeCtx e c where
 --  cache = fst
 --  account = snd
 
+-- | this constraint kind is for the monad in which all our exchange operations take place in
 type MonadExchange e c m = (ExchangeCtx e c, Monad m, MonadCatch m, MonadIO m, MonadReader c m)
 
+-- TODO rename this
+-- | A class for tokens in an exchange
+-- Account refers to the account stored in `ExchangeAccount e` of the `c` context parameter.
 class (Token t, Exchange e, ExchangeCtx e c) => ExchangeToken t e c where
   -- TODO probably don't need this, it's encapsulated by getBalance
   -- symbol of token on the exchange
   symbol :: Proxy (t,e,c) -> String
   symbol _ = tokenName (Proxy :: Proxy t)
-  -- get balance (normalized to lowest denomination)
+  -- get the account's balance (normalized to lowest denomination)
   getBalance :: (MonadExchange e c m) => Proxy (t,e,c) -> m (Amount t)
 
-
+-- | the state of an order
 data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Show)
+
+-- | the status of an order
 data OrderStatus = OrderStatus {
   orderState :: OrderState
 }
 
--- maybe simpler way to do type level exchange pairs
+-- | A class for tradeable token pairs on an exchange.
+-- All opreations of `ExchangePair t1 t2` are from the perspective of `t1`
+-- i.e. buying and selling refers to what we are doing with `t1`
+-- Account refers to the account stored in `ExchangeAccount e` of the `c` context parameter.
 class (ExchangeToken t1 e c, ExchangeToken t2 e c, ExchangeCtx e c) => ExchangePair t1 t2 e c where
+  -- | The name of the exchange pair
   pairName :: Proxy (t1,t2,e,c) -> String
   pairName _ =
     exchangeName (Proxy :: Proxy e) ++ " "
     ++ tokenName (Proxy :: Proxy t1) ++ ":"
     ++ tokenName (Proxy :: Proxy t2)
 
-  -- | pairID returns a String identifier
+  -- | The exchange's identifier for this trading pair
   pairId :: Proxy (t1,t2,e,c) -> ExchangePairId e
 
-  -- | liquidity returns your respective balance in the two tokens
   -- TODO is this the right name for it?
   -- TODO probably just delete this function, there's no reason an exchange would override this implementation
+  -- | returns the account's respective balance for both tokens
   liquidity :: (MonadExchange e c m) => Proxy (t1,t2,e) -> m (Liquidity t1 t2)
   liquidity _ = do
     b1 <- getBalance (Proxy :: Proxy (t1,e,c))
     b2 <- getBalance (Proxy :: Proxy (t2,e,c))
     return $ Liquidity b1 b2
 
-  -- | getExchangeRate returns the current exchange rate
+  -- | returns the current exchange rate
   getExchangeRate :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> m (ExchangeRate t1 t2)
 
+  -- | type family for the exchange's order type
   type Order t1 t2 e :: *
-  -- | getOrders returns all unexecuted orders
+
+  -- | returns all unexecuted orders
   getOrders :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> m [Order t1 t2 e]
   getOrders _ = return []
-  -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
+
+  -- | buys `t1` for `t2` tokens OR sells `t1` for `t2` tokens
   order :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> OrderType -> Amount t1 -> Amount t2 -> m (Order t1 t2 e)
+
+  -- | returns the status of an order
   getStatus :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> Order t1 t2 e -> m OrderStatus
-  -- TODO make this a parameter of the exchange, not the exchange pair?
+
+  -- TODO DELETE
+  -- | delete this because cancel will just return false if it can't be cancelled..
   canCancel :: Proxy (t1,t2,e,c) -> Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
   canCancel _ _ = False
+
+  -- | cancels an order
+  -- returns whether the order was cancelled successfully or not
   cancel :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> Order t1 t2 e -> m Bool
-  cancel = undefined
+  cancel _ _ = return False
 
 
 

@@ -22,6 +22,7 @@ class (Token t1, Token t2) => RealBilaxyPair t1 t2 where
 instance RealBilaxyPair TT USDT where
   getPairId _ _ = 151
 
+-- | Bilaxy exchange type
 data Bilaxy
 
 type BilaxyAccount = ()
@@ -39,6 +40,7 @@ instance Exchange Bilaxy where
   type ExchangeCache Bilaxy = BilaxyCache
   type ExchangeAccount Bilaxy = BilaxyAccount
 
+-- | Bilaxy exchange type where trading pairs are flipped
 data BilaxyFlip
 
 instance ExchangeCtx BilaxyFlip BilaxyCtx where
