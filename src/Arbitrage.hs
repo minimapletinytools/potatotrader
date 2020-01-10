@@ -86,42 +86,41 @@ doArbitrage proxy = do
 
   -- query exchange rate
   erresult <- try $ do
-    er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2))
-    er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2))
-    return (er1, er2)
-  (er1, er2) <- case erresult of
+    exchRate1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2))
+    exchRate2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2))
+    return (exchRate1, exchRate2)
+  (exchRate1, exchRate2) <- case erresult of
     -- TODO log and error and restart
     Left (SomeException e) -> undefined
     Right r                -> return r
 
+  {-
+  -- TODO something like this
+  --if t1e1/t1e2 > t2e1/t2e2 then profit_t1e2 else profit_t2e1
+
+  -- TODO abstract this in t1 t2 e1 e2 and use in commented line of code above
+  -- TODO add tx fees...
   let
-    sellt1_e1 = sellt1 er1
-    buyt1_e1 = buyt1 er1
-    sellt1_e2 = sellt1 er2
-    buyt1_e2 = buyt1 er2
+    sellt1_e1 = sellt1 exchRate1
+    buyt1_e2 = buyt1 exchRate2
 
+    --t1:t2 exchange ratio for input amount t1e1_in on exchange e1
+    --in this case, we are selling t1 on e1
+    t1t2e1 t1e1_in = t1e1_in / sellt1_e1 t1e1_in
 
-  -- assume 0 tx fees for now
-  -- arbitrage t1 means exchange t1->t2 in e1 and t2->t1 in e2
-  --profit_t1 = (buyt1_e2 (sellt1_e1 t1x) - t1x)
-  -- arbitrage t2 means exchange t2->t1 in e1 and t1->t2 in e2
-  --profit_t2 =
+    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
+    -- in this case, we are buying t1 on e2
+    t2t1e2 t2e2_in = buyt1_e2 t2e2_in / t2e2_in
 
+    -- profit of t1 on exchange e2 after successful arbitrage
+    profit_t1e2 t1e1_in = 1/(t1t2e1 t1e1_in * t2t1e2 (sellt1_e1 t1e1_in))
 
+    -- TODO maximize profit heuristically
 
-{-
-    data ExchangeRate t1 t2 = ExchangeRate {
-      -- | sellt1 returns approx amount of t2 bought for input of t1
-      sellt1     :: Amount t1 -> Amount t2
-      -- | buyt1 returns approx amount of t1 bought for input of t2
-      , buyt1    :: Amount t2 -> Amount t1
-      -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
-      -- does not distinguish between buy/sell
-      -- TODO this should probably return something like (TimeDiff -> Double)
-      , variance :: Amount t1 -> Amount t2 -> Double
-    }
--}
-  -- check if arbitrage opportunity exists
+    -- TODO execute the trades if profit exceeds threshold
+    -- add all trades to a list
 
+  -- TODO sleep based on rate limit for api calls
+  -}
 
   return ()

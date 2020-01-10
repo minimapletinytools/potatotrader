@@ -8,6 +8,9 @@
 
 - add test cases for all the chain query stuff D:
 - reorg to give everything a package name
+- Potato.Trading
+- check if bilaxy is actually using bilaxy tokens to pay for txfees
+- figure out if txfees are levied in first or second token on bilaxy
 
 ::FUTURE::
 - accounts should not be read in IO monad. They should be passed in as an argument for each private exchange function (using data family for type)

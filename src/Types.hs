@@ -50,13 +50,19 @@ data OrderType = Buy | Sell deriving (Eq, Show)
 -- The interface is likely to be upgraded in the future as thu current design is limited
 data ExchangeRate t1 t2 = ExchangeRate {
   -- | sellt1 returns approx amount of t2 bought for input of t1
+  -- includes fee?
   sellt1     :: Amount t1 -> Amount t2
   -- | buyt1 returns approx amount of t1 bought for input of t2
+  -- includes fee?
   , buyt1    :: Amount t2 -> Amount t1
   -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
   -- does not distinguish between buy/sell
   -- TODO this should probably return something like (TimeDiff -> Double)
   , variance :: Amount t1 -> Amount t2 -> Double
+
+  -- TODO
+  --feet1 :: Amount2 -> Amount t1 -> Amount t1
+  --feet2 :: Amount1 -> Amount t2 -> Amount t2
 }
 
 -- | not an especially pretty implementation, just for debugging purposes
