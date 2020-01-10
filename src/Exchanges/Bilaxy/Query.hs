@@ -1,5 +1,5 @@
+{-# LANGUAGE ConstraintKinds   #-}
 {-# LANGUAGE OverloadedStrings #-}
-
 
 module Exchanges.Bilaxy.Query (
   DecodeError(..),
@@ -21,32 +21,68 @@ module Exchanges.Bilaxy.Query (
 where
 
 import           Control.Exception
-import           Control.Monad              (mapM_)
+import           Control.Monad           (mapM_)
 import           Control.Monad.Catch
-import qualified Crypto.Hash.SHA1           as SHA1
+import qualified Crypto.Hash.SHA1        as SHA1
 import           Data.Aeson
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Builder    as BSB
-import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString.UTF8       as BS
-import qualified Data.Map                   as M
-import           Data.Sort                  (sort)
+import qualified Data.ByteString         as BS
+import qualified Data.ByteString.Builder as BSB
+import qualified Data.ByteString.Lazy    as LBS
+import qualified Data.ByteString.UTF8    as BS
+import qualified Data.Map                as M
+import           Data.Sort               (sort)
 import           Data.Text.Encoding
 import           Data.UnixTime
-import           Debug.Trace                (trace)
-import qualified Exchanges.Bilaxy.Aeson     as BA
-import           Network.HTTP.Simple
+import           Debug.Trace             (trace)
+import qualified Exchanges.Bilaxy.Aeson  as BA
+import           Network.HTTP.Simple     hiding (httpLBS)
 import           System.IO
 import           System.IO.Error
 import           Text.Printf
-import qualified Types                      as T
+import qualified Types                   as T
+
+
+
+class Monad m => MonadHttp m where
+  httpLBS :: Request -> m (Response LBS.ByteString)
+
+instance MonadHttp IO where
+  httpLBS = httpLbs
+
+class Monad m => MonadKeyReader m where
+  readKeys :: m KeyPair
+
+instance MonadKeyReader IO where
+  readKeys = readKeysIO
+
+-- TODO
+--instance (Monad m) => MonadKeyReader (ReaderT ((),()) m) where
+--  readKeys = undefined
+
+type MonadQuery m = (Monad m, MonadHttp m, MonadThrow m, MonadKeyReader m)
+
+
+
+-- TODO test fixture class
+-- see https://lexi-lambda.github.io/blog/2016/10/03/using-types-to-unit-test-in-haskell/
+{-
+data MonadQueryInst ..
+newtype TestM log a =
+    TestM (ReaderT (MonadFSInst (TestM log)) (Writer log) a)
+  deriving ( Functor, Applicative, Monad
+           , MonadReader (MonadFSInst (TestM log))
+           , MonadWriter log
+           )
+-}
+
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
 
 type Params = [(BS.ByteString, BS.ByteString)]
 type KeyPair = (BS.ByteString, BS.ByteString)
+nilKey :: KeyPair
+nilKey = ("","")
 
 newtype DecodeError = DecodeError String
   deriving (Show)
@@ -55,8 +91,8 @@ instance Exception DecodeError
 
 -- TODO prompt for password and decrypt
 -- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
-readKeys :: IO (BS.ByteString, BS.ByteString)
-readKeys = do
+readKeysIO :: IO KeyPair
+readKeysIO = do
     handle <- openFile "keys.txt" ReadMode
     pub <- BS.hGetLine handle
     sec <- BS.hGetLine handle
@@ -100,25 +136,25 @@ generatePrivRequest gateway kp method path q = do
   return $ query method path q2 r
 
 -- | makeRequest makes a request and converts JSON return value into a haskell object
-makeRequest :: (FromJSON a) => String -> Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
-makeRequest gateway priv method path params = do
-  kp <- readKeys
+makeRequest :: (MonadQuery m, FromJSON a) => KeyPair -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
+makeRequest kp gateway method path params = do
+  let priv = kp /= nilKey
   request <- if priv
     then generatePrivRequest gateway kp method path params
     else generateRequest gateway method path params
-  printf "querying (priv=%s):\n%s" (show priv) (show request)
+  --printf "querying (priv=%s):\n%s" (show priv) (show request)
   response <- httpLBS request
   --putStrLn $ "response status code: " ++ show (getResponseStatusCode response)
-  printResponse response
+  --printResponse response
   let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
-    Left v  -> throwIO $ DecodeError $ "bilaxy decode error: " ++ show v
+    Left v  -> throwM $ DecodeError $ "bilaxy decode error: " ++ show v
     Right a -> return a
 
 -- | makeStandardResponseRequest calls makeRequest assuming the return type is wrapped in BA.BilaxyResponse
-makeStandardResponseRequest :: (FromJSON a) => String -> Bool -> BS.ByteString -> BS.ByteString -> Params -> IO a
-makeStandardResponseRequest gateway priv method path params = do
-  BA.BilaxyResponse code a <- makeRequest gateway priv method path params
+makeStandardResponseRequest :: (MonadQuery m, FromJSON a) => KeyPair -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
+makeStandardResponseRequest kp gateway method path params = do
+  BA.BilaxyResponse code a <- makeRequest kp gateway method path params
   case code of
     200 -> return a
     _   -> error $ "bad return code: " ++ show code
@@ -129,7 +165,7 @@ showBS = BS.fromString . show
 -- | getTicker returns price ticker for given pair
 getTicker :: Int -> IO BA.Ticker
 getTicker pair = do
-  makeStandardResponseRequest oldGateway True "GET" "/v1/ticker/" [("symbol", showBS pair)]
+  makeStandardResponseRequest nilKey oldGateway "GET" "/v1/ticker/" [("symbol", showBS pair)]
 
 -- | pullBalance returns (balance, frozen) of key from a BalanceData query
 pullBalance :: BA.BalanceDataMap -> String -> Maybe (Double, Double)
@@ -140,7 +176,8 @@ pullBalance bdm key = do
 -- | getBalanceOf returns balance of given symbol
 getBalanceOf :: String -> IO Double
 getBalanceOf symbol = do
-  bd <- makeStandardResponseRequest oldGateway True "GET" "/v1/balances/" []
+  kp <- readKeys
+  bd <- makeStandardResponseRequest kp oldGateway "GET" "/v1/balances/" []
   let
     sortedbd = BA.sortBalanceData bd
     maybeBalance = pullBalance sortedbd symbol
@@ -150,18 +187,23 @@ getBalanceOf symbol = do
 
 -- TODO what happens when order does not exist, probably same as cancelOrder
 getOrderInfo :: Int -> IO BA.OrderInfo
-getOrderInfo orderId = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_view" [("id", showBS orderId)]
+getOrderInfo orderId = do
+  kp <- readKeys
+  makeStandardResponseRequest kp oldGateway "GET" "/v1/trade_view" [("id", showBS orderId)]
 
 getOrderList :: Int -> IO [BA.OrderInfo]
-getOrderList pair = makeStandardResponseRequest oldGateway True "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
+getOrderList pair = do
+  kp <- readKeys
+  makeStandardResponseRequest kp oldGateway "GET" "/v1/trade_list" [("symbol", showBS pair),("type", "1")]
 
 -- | getDepth returns market depth
 getDepth :: Int -> IO BA.MarketDepth
-getDepth pair = makeStandardResponseRequest oldGateway False "GET" "/v1/depth" [("symbol", showBS pair),("type", "1")]
+getDepth pair = do
+  makeStandardResponseRequest nilKey oldGateway "GET" "/v1/depth" [("symbol", showBS pair),("type", "1")]
 
 getRateLimit :: IO BA.RateLimit
 getRateLimit = do
-  [r] <- makeRequest newGateway False "GET" "/rate_limits" []
+  [r] <- makeRequest nilKey newGateway "GET" "/rate_limits" []
   return r
 
 -- amount is in units of first token
@@ -177,7 +219,8 @@ postOrder pair amount price orderType = do
     ot = case orderType of
       T.Buy  -> "buy"
       T.Sell -> "sell"
-  BA.TradeExecResult code oid <- makeRequest oldGateway True "POST" "/v1/trade"
+  kp <- readKeys
+  BA.TradeExecResult code oid <- makeRequest kp oldGateway "POST" "/v1/trade"
     [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", ot)]
   return oid
 
@@ -185,16 +228,19 @@ postOrder pair amount price orderType = do
 -- which causes parser to throw an error
 cancelOrder :: Int -> IO ()
 cancelOrder oid = do
-  BA.BilaxyResponse code (rid :: Int) <- makeRequest oldGateway True "POST" "/v1/cancel_trade" [("id", showBS oid)]
+  kp <- readKeys
+  BA.BilaxyResponse code (rid :: Int) <- makeRequest kp oldGateway "POST" "/v1/cancel_trade" [("id", showBS oid)]
   return ()
 
+
+
 -- TODO delete stuff below
-printResponse :: Response L8.ByteString -> IO ()
+printResponse :: Response LBS.ByteString -> IO ()
 printResponse response = do
   putStrLn $ "The status code was: " ++
     show (getResponseStatusCode response)
   print $ getResponseHeader "Content-Type" response
-  L8.putStrLn $ getResponseBody response
+  LBS.putStrLn $ getResponseBody response
 
 
 testBalance :: IO ()
