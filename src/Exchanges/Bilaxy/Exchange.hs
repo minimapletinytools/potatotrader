@@ -72,7 +72,7 @@ data BilaxyOrderDetails = BilaxyOrderDetails {
   orderId :: Int
 } deriving (Show)
 
-type BilaxyExchangePairConstraints t1 t2 c = (Token t1, Token t2, RealBilaxyPair t1 t2, ExchangeCtx Bilaxy c, ExchangeToken t1 Bilaxy c, ExchangeToken t2 Bilaxy c)
+type BilaxyExchangePairConstraints t1 t2 c = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy c, ExchangeToken t2 Bilaxy c)
 
 instance BilaxyExchangePairConstraints t1 t2 c => ExchangePair t1 t2 Bilaxy c where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
@@ -146,7 +146,13 @@ flipProxy :: Proxy (t1, t2, BilaxyFlip,c) -> Proxy (t2, t1, Bilaxy,c)
 flipProxy _ = Proxy
 
 -- current implementation depends on ExchangePair t2 t1 Bilaxy and hence extra constraints
-type BilaxyFlipExchangePairConstraints t1 t2 c = (Token t1, Token t2, RealBilaxyPair t2 t1, ExchangeCtx BilaxyFlip c, ExchangeToken t1 BilaxyFlip c, ExchangeToken t2 BilaxyFlip c, ExchangeToken t1 Bilaxy c, ExchangeToken t2 Bilaxy c)
+type BilaxyFlipExchangePairConstraints t1 t2 c = (
+  RealBilaxyPair t2 t1,
+  ExchangeToken t1 BilaxyFlip c,
+  ExchangeToken t2 BilaxyFlip c,
+  ExchangeToken t1 Bilaxy c,
+  ExchangeToken t2 Bilaxy c
+  )
 
 -- |
 -- UNTESTED

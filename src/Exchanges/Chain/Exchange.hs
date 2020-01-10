@@ -52,7 +52,7 @@ type ChainCtx = ((),())
   -- = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
   -- for all n
 
-instance ExchangeCtx (OnChain n) ((),()) where
+instance (Network n) => ExchangeCtx (OnChain n) ((),()) where
   cache = fst
   account = snd
 
@@ -108,14 +108,20 @@ data OnChainOrder = OnChainOrder {
   receipt :: TxReceipt
 }
 
-type ExchangeTokenConstraint t n c = (Token t, Exchange (OnChain n), ExchangeCtx (OnChain n) c, Network n, ChainToken t n)
+type ExchangeTokenConstraint t n c = (ChainToken t n, ExchangeCtx (OnChain n) c)
 instance ExchangeTokenConstraint t n c => ExchangeToken t (OnChain n) c where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
        Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
        Nothing   -> liftIO $ Amount <$> Q.getBalance url
 
-type ExchangePairConstraint t1 t2 n c = (Network n, ExchangeTokenConstraint t1 n c, ExchangeTokenConstraint t2 n c, Uniswap (BaseToken t1) t1 t2 n c, Uniswap (BaseToken t2) t2 t1 n c, UniswapNetwork t1 t2 n)
+type ExchangePairConstraint t1 t2 n c = (
+  ExchangeTokenConstraint t1 n c,
+  ExchangeTokenConstraint t2 n c,
+  Uniswap (BaseToken t1) t1 t2 n c,
+  Uniswap (BaseToken t2) t2 t1 n c,
+  UniswapNetwork t1 t2 n)
+
 instance ExchangePairConstraint t1 t2 n c => ExchangePair t1 t2 (OnChain n) c where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 

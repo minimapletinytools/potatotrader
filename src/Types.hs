@@ -79,7 +79,7 @@ class Exchange e where
   -- TODO generalize account access to the exchange
   type ExchangeAccount e :: *
 
-class ExchangeCtx e c where
+class (Exchange e) => ExchangeCtx e c where
   cache :: c -> ExchangeCache e
   account :: c -> ExchangeAccount e
 

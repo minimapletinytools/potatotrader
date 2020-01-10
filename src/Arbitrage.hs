@@ -8,9 +8,8 @@ module Arbitrage (
   doArbitrage
 ) where
 
-import           Control.Exception
 import           Control.Monad
-import qualified Control.Monad.Catch       as C
+import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
@@ -22,25 +21,19 @@ type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
 newtype CtxPair e1 e2 = CtxPair { unwrapCtxPair :: (CtxSingle e1, CtxSingle e2) }
 
 
-instance ExchangeCtx e1 (CtxPair e1 e2) where
+instance (Exchange e1) => ExchangeCtx e1 (CtxPair e1 e2) where
   cache = fst . fst . unwrapCtxPair
   account = snd . fst . unwrapCtxPair
 
-instance ExchangeCtx e2 (CtxPair e1 e2) where
+instance (Exchange e2) => ExchangeCtx e2 (CtxPair e1 e2) where
   cache = fst . snd . unwrapCtxPair
   account = snd . snd . unwrapCtxPair
 
 type ArbitrageConstraints t1 t2 e1 e2 m = (
-  Token t1
-  , Token t2
-  , Exchange e1
-  , Exchange e2
-  , ExchangePair t1 t2 e1 (CtxPair e1 e2)
+  ExchangePair t1 t2 e1 (CtxPair e1 e2)
   , ExchangePair t1 t2 e2 (CtxPair e1 e2)
-  , ExchangeCtx e1 (CtxPair e1 e2)
-  , ExchangeCtx e2 (CtxPair e1 e2)
   , Monad m
-  , C.MonadCatch m
+  , MonadCatch m
   , MonadIO m
   , MonadReader (CtxPair e1 e2) m
   )
@@ -50,7 +43,7 @@ doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, Mona
 doArbitrage proxy = do
 
   -- query and cancel all orders
-  qncresult <- C.try $ do
+  qncresult <- try $ do
     let
       pe1 = Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2)
       pe2 = Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2)
@@ -64,7 +57,7 @@ doArbitrage proxy = do
     Right _                -> return ()
 
   -- query balances
-  gbresult <- C.try $ do
+  gbresult <- try $ do
     t1e1 <- getBalance (Proxy :: Proxy (t1, e1,CtxPair e1 e2))
     t2e1 <- getBalance (Proxy :: Proxy (t2, e1,CtxPair e1 e2))
     t1e2 <- getBalance (Proxy :: Proxy (t1, e2,CtxPair e1 e2))
@@ -76,7 +69,7 @@ doArbitrage proxy = do
     Right r                -> return r
 
   -- query exchange rate
-  erresult <- C.try $ do
+  erresult <- try $ do
     er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2))
     er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2))
     return (er1, er2)
