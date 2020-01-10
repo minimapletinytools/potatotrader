@@ -48,7 +48,10 @@ instance Network EthereumMain where
   chainId _ = 1
 
 -- helpers
-type ChainCtx n = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
+type ChainCtx = ((),())
+  -- = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
+  -- for all n
+
 instance ExchangeCtx (OnChain n) ((),()) where
   cache = fst
   account = snd
