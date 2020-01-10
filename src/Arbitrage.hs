@@ -96,7 +96,7 @@ doArbitrage _ = do
     t1e2 <- lifte2 $ getBalance (Proxy :: Proxy (t1, e2))
     t2e2 <- lifte2 $ getBalance (Proxy :: Proxy (t2, e2))
     return (t1e1, t2e1, t1e2, t2e2)
-  (t1e1, t2e1, t1e2, t2e2) <- case gbresult of
+  (b_t1e1, b_t2e1, b_t1e2, b_t2e2) <- case gbresult of
     -- TODO log and error and restart
     Left (SomeException e) -> return (0,0,0,0)
     Right r                -> return r
@@ -112,8 +112,23 @@ doArbitrage _ = do
     Right r                -> return r
 
   {-
+
+  -- terminology
+  -- * b_tiek - balance in ti tokens on ek
+  -- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek
+  --  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1
+  -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage on el)
+  --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
+
+
+
   -- TODO something like this
-  --if t1e1/t1e2 > t2e1/t2e2 then profit_t1e2 else profit_t2e1
+  --if t1t2e1 > t1t2e2 then
+      profit_t2e2 or profit_t1e1
+    else
+      profit_t1e2 or profit_t2e1
+
+  --  if t1e1/t1e2 > t2e1/t2e2 then profit_t1e2 else profit_t2e1
 
   -- TODO abstract this in t1 t2 e1 e2 and use in commented line of code above
   -- TODO add tx fees...
@@ -121,16 +136,16 @@ doArbitrage _ = do
     sellt1_e1 = sellt1 exchRate1
     buyt1_e2 = buyt1 exchRate2
 
-    --t1:t2 exchange ratio for input amount t1e1_in on exchange e1
+    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
     --in this case, we are selling t1 on e1
-    t1t2e1 t1e1_in = t1e1_in / sellt1_e1 t1e1_in
+    t1t2e1 in_t1e1 = in_t1e1 / sellt1_e1 in_t1e1
 
     --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
     -- in this case, we are buying t1 on e2
-    t2t1e2 t2e2_in = buyt1_e2 t2e2_in / t2e2_in
+    t2t1e2 in_t2e2 = buyt1_e2 in_t2e2 / in_t2e2
 
     -- profit of t1 on exchange e2 after successful arbitrage
-    profit_t1e2 t1e1_in = 1/(t1t2e1 t1e1_in * t2t1e2 (sellt1_e1 t1e1_in))
+    profit_t1e2 in_t1e1 = 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1))
 
     -- TODO maximize profit heuristically
 
@@ -141,3 +156,5 @@ doArbitrage _ = do
   -}
 
   return ()
+
+profit
