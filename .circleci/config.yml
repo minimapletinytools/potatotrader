@@ -30,5 +30,3 @@ jobs:
           # Upload test summary for display in Artifacts: https://circleci.com/docs/2.0/artifacts/
           path: ~/.local/bin/potatoarbitrage
           destination: potatoarbitrage
-
-Config Walkthrough
