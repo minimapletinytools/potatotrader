@@ -49,9 +49,6 @@ instance Network EthereumMain where
 
 -- helpers
 type ChainCtx n = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
-instance (Exchange (OnChain n)) => ExchangeCtx (OnChain n) (ChainCtx n) where
-  cache = fst
-  account = snd
 
 class (Token t, Network n) => ChainToken t n where
   tokenAddress :: Proxy(t,n) -> Maybe Address
@@ -71,7 +68,7 @@ class (Token t1, Token t2, Network n) => Uniswap (isbase :: Bool) t1 t2 n where
   -- exchanges t1 for t2 where input amount (t1) is fixed
   -- TODO remove chainid url and token arguments, no longer needed
   -- not sure why Proxy (isbase,n) doesn't work...
-  t1t2SwapInput :: forall ex m. (MonadExchange (OnChain n) (ChainCtx n) m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> m (Either ex TxReceipt)
+  t1t2SwapInput :: forall ex m. (MonadExchange (OnChain n) m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> m (Either ex TxReceipt)
 
 instance (Token t1, Token t2, Network n) => Uniswap 'True t1 t2 n where
   t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
@@ -85,7 +82,7 @@ class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
 instance UniswapNetwork TT USDT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
-getBalanceOf :: forall t n m. (MonadExchange (OnChain n) (ChainCtx n) m, ChainToken t n, Network n) => Proxy (t,n) -> Address -> m (Amount t)
+getBalanceOf :: forall t n m. (MonadExchange (OnChain n) m, ChainToken t n, Network n) => Proxy (t,n) -> Address -> m (Amount t)
 getBalanceOf _ acct = let url = rpc (Proxy :: Proxy n) in
   case tokenAddress (Proxy :: Proxy (t,n)) of
     Just addr -> liftIO $ Amount <$> Q.getTokenBalanceOf url addr acct

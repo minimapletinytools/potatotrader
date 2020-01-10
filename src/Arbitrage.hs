@@ -19,9 +19,6 @@ import           Types
 -- types to split the reader ctx for each of the exchanges
 type CtxPair e1 e2 = (ExchangeCtx e1, ExchangeCtx e2)
 
-lifte1 = withReaderT fst
-lifte2 = withReaderT snd
-
 type ArbitrageConstraints t1 t2 e1 e2 m = (Token t1, Token t2, Exchange e1, Exchange e2, ExchangePair t1 t2 e1, ExchangePair t1 t2 e2, MonadExchange e1 m, MonadExchange e2 m)
 doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m, MonadReader (CtxPair e1 e2) m) =>
   Proxy (t1, t2, e1, e2)
@@ -33,8 +30,8 @@ doArbitrage proxy = do
     let
       pe1 = Proxy :: Proxy (t1,t2,e1)
       pe2 = Proxy :: Proxy (t1,t2,e2)
-    e1orders <- lifte1 $ getOrders pe1
-    e2orders <- lifte2 $ getOrders pe2
+    e1orders <- getOrders pe1
+    e2orders <- getOrders pe2
     mapM_ (cancel pe1) e1orders
     mapM_ (cancel pe2) e2orders
   case qncresult of

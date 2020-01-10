@@ -29,10 +29,6 @@ type BilaxyCache = ()
 
 type BilaxyCtx = (BilaxyCache, BilaxyAccount)
 
-instance ExchangeCtx Bilaxy BilaxyCtx where
-  cache = fst
-  account = snd
-
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
   type ExchangePairId Bilaxy = Int
@@ -41,17 +37,13 @@ instance Exchange Bilaxy where
 
 data BilaxyFlip
 
-instance ExchangeCtx BilaxyFlip BilaxyCtx where
-  cache = fst
-  account = snd
-
 instance Exchange BilaxyFlip where
   exchangeName _ = "Bilaxy (flipped pairs)"
   type ExchangePairId BilaxyFlip = Int
   type ExchangeCache BilaxyFlip = BilaxyCache
   type ExchangeAccount BilaxyFlip = BilaxyAccount
 
-getBalanceHelper :: forall t e m. (MonadExchange e BilaxyCtx m, Token t, ExchangeToken t e) => Proxy (t,e) -> m (Amount t)
+getBalanceHelper :: forall t e m. (MonadExchange e m, Token t, ExchangeToken t e) => Proxy (t,e) -> m (Amount t)
 getBalanceHelper p = do
   b <- liftIO $ getBalanceOf $ symbol p
   return . Amount . floor $ fromIntegral (decimals (Proxy :: Proxy t)) * b
