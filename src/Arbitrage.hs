@@ -32,10 +32,8 @@ instance (Exchange e2) => ExchangeCtx e2 (CtxPair e1 e2) where
 type ArbitrageConstraints t1 t2 e1 e2 m = (
   ExchangePair t1 t2 e1 (CtxPair e1 e2)
   , ExchangePair t1 t2 e2 (CtxPair e1 e2)
-  , Monad m
-  , MonadCatch m
-  , MonadIO m
-  , MonadReader (CtxPair e1 e2) m
+  , MonadExchange e1 (CtxPair e1 e2) m
+  , MonadExchange e2 (CtxPair e1 e2) m
   )
 doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m) =>
   Proxy (t1, t2, e1, e2)

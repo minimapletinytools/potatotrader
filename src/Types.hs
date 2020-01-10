@@ -88,7 +88,7 @@ class (Exchange e) => ExchangeCtx e c where
 --  cache = fst
 --  account = snd
 
-type MonadExchange e c m = (MonadCatch m, MonadIO m, ExchangeCtx e c, MonadReader c m)
+type MonadExchange e c m = (ExchangeCtx e c, Monad m, MonadCatch m, MonadIO m, MonadReader c m)
 
 class (Token t, Exchange e, ExchangeCtx e c) => ExchangeToken t e c where
   -- TODO probably don't need this, it's encapsulated by getBalance
