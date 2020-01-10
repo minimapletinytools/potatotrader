@@ -22,6 +22,7 @@ where
 
 import           Control.Exception
 import           Control.Monad              (mapM_)
+import           Control.Monad.Catch
 import qualified Crypto.Hash.SHA1           as SHA1
 import           Data.Aeson
 import qualified Data.ByteString            as BS
@@ -86,13 +87,13 @@ query method path query =
     toQuery = map (\(x,y) -> (x, Just y))
 
 -- | generateRequest generates a open Bilaxy API request with given method, path and params
-generateRequest :: String -> BS.ByteString -> BS.ByteString -> Params -> IO Request
+generateRequest :: MonadThrow m => String -> BS.ByteString -> BS.ByteString -> Params -> m Request
 generateRequest gateway method path q = do
   r <- parseRequest gateway
   return $ query method path q r
 
 -- | generatePrivRequest generates a private Bilaxy API request with given keypair, method, path, and params
-generatePrivRequest :: String -> KeyPair -> BS.ByteString -> BS.ByteString -> Params -> IO Request
+generatePrivRequest :: MonadThrow m => String -> KeyPair -> BS.ByteString -> BS.ByteString -> Params -> m Request
 generatePrivRequest gateway kp method path q = do
   let q2 = signParams kp q
   r <- parseRequest gateway
