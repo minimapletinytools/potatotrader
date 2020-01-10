@@ -45,10 +45,21 @@ instance Semigroup ArbitrageLogs where
 instance Monoid ArbitrageLogs where
   mempty = ArbitrageLogs
 
+-- | monad type used for arbitrage which allows operating on two exchanges at the same time
 type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
 
---lifte1 :: forall e1 e2 m a. (Exchange e1, Exchange e2) => ExchangeT e1 m a -> ExchangePairT (CtxPair e1 e2) m a
+-- TODO figure out type signature
+-- using this type signature creates ambiguous type var error.. don't entirely understand why because CtxSingle e1/e2 should always tuples inside of CtxPair e1 e2
+--lifte1 :: forall e1 e2 m a. (Exchange e1, Exchange e2) => ExchangeT e1 m a -> ExchangePairT e1 e2 m a
+
+-- | lift a reader action on r to a reader action on (r,b)
+-- this matches the type `ExchangeT e1 m a -> ExchangePairT e1 e2 m a`
+lifte1 :: ReaderT r m a -> ReaderT (r, b) m a
 lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
+
+-- | lift a reader action on r to a reader action on (b,r)
+-- this matches the type `ExchangeT e2 m a -> ExchangePairT e1 e2 m a`
+lifte2 :: ReaderT r m a -> ReaderT (b, r) m a
 lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
 
 doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs (ExchangePairT e1 e2 m)) =>
