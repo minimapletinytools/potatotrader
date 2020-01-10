@@ -49,7 +49,7 @@ instance Network EthereumMain where
 
 -- helpers
 type ChainCtx n = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
-instance (c~(ChainCtx n), Exchange (OnChain n)) => ExchangeCtx (OnChain n) c where
+instance ExchangeCtx (OnChain n) ((),()) where
   cache = fst
   account = snd
 

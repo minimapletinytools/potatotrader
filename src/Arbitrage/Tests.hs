@@ -22,13 +22,13 @@ import           Types
 
 
 
-type ArbMonad w = WriterT w (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO)
-testArbitrage :: forall t1 t2 e1 e2 w. (ArbitrageConstraints TT USDT (OnChain ThunderCoreMain) Bilaxy (ArbMonad w), Monoid w) =>
+type ArbMonad = WriterT () (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO)
+testArbitrage :: forall t1 t2 e1 e2. (ArbitrageConstraints TT USDT (OnChain ThunderCoreMain) Bilaxy ArbMonad) =>
   Test
 testArbitrage = TestCase $ do
   let
     ctx = CtxPair (((),()),((),())) :: CtxPair (OnChain ThunderCoreMain) Bilaxy
-    arb :: WriterT w (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO) ()
+    arb :: WriterT () (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO) ()
     arb = doArbitrage (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain, Bilaxy))
   rslt <- flip runReaderT ctx $ runWriterT $ arb
   --print rslt -- force rslt
