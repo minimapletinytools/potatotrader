@@ -30,10 +30,6 @@ type BilaxyCache = ()
 
 type BilaxyCtx = (BilaxyCache, BilaxyAccount)
 
-instance ExchangeCtx Bilaxy BilaxyCtx where
-  cache = fst
-  account = snd
-
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
   type ExchangePairId Bilaxy = Int
@@ -43,40 +39,36 @@ instance Exchange Bilaxy where
 -- | Bilaxy exchange type where trading pairs are flipped
 data BilaxyFlip
 
-instance ExchangeCtx BilaxyFlip BilaxyCtx where
-  cache = fst
-  account = snd
-
 instance Exchange BilaxyFlip where
   exchangeName _ = "Bilaxy (flipped pairs)"
   type ExchangePairId BilaxyFlip = Int
   type ExchangeCache BilaxyFlip = BilaxyCache
   type ExchangeAccount BilaxyFlip = BilaxyAccount
 
-getBalanceHelper :: forall t e c m. (MonadExchange e c m, Token t, ExchangeToken t e c) => Proxy (t,e,c) -> m (Amount t)
+getBalanceHelper :: forall t e m. (MonadExchange m, ExchangeToken t e) => Proxy (t,e) -> ExchangeT e m (Amount t)
 getBalanceHelper p = do
   b <- liftIO $ getBalanceOf $ symbol p
   return . Amount . floor $ fromIntegral (decimals (Proxy :: Proxy t)) * b
 
-instance (ExchangeCtx Bilaxy c) => ExchangeToken TT Bilaxy c where
+instance ExchangeToken TT Bilaxy where
   getBalance = getBalanceHelper
 
-instance (ExchangeCtx Bilaxy c) => ExchangeToken USDT Bilaxy c where
+instance ExchangeToken USDT Bilaxy where
   getBalance = getBalanceHelper
 
-instance (ExchangeCtx BilaxyFlip c) => ExchangeToken TT BilaxyFlip c where
+instance ExchangeToken TT BilaxyFlip where
   getBalance = getBalanceHelper
 
-instance (ExchangeCtx BilaxyFlip c) => ExchangeToken USDT BilaxyFlip c where
+instance ExchangeToken USDT BilaxyFlip where
   getBalance = getBalanceHelper
 
 data BilaxyOrderDetails = BilaxyOrderDetails {
   orderId :: Int
 } deriving (Show)
 
-type BilaxyExchangePairConstraints t1 t2 c = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy c, ExchangeToken t2 Bilaxy c)
+type BilaxyExchangePairConstraints t1 t2 = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 
-instance BilaxyExchangePairConstraints t1 t2 c => ExchangePair t1 t2 Bilaxy c where
+instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
@@ -97,14 +89,14 @@ instance BilaxyExchangePairConstraints t1 t2 c => ExchangePair t1 t2 Bilaxy c wh
       Right oi               -> return True
 
   getOrders _ = do
-    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy,c))
+    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
     return $ map (BilaxyOrderDetails . BA.oi_id) orders
 
   order _ ot (Amount t1) (Amount t2) = do
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
-      pproxy = Proxy :: Proxy (t1, t2, Bilaxy,c)
+      pproxy = Proxy :: Proxy (t1, t2, Bilaxy)
       amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
       amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
       price_t2 = amount_t2 / amount_t1
@@ -144,21 +136,21 @@ instance BilaxyExchangePairConstraints t1 t2 c => ExchangePair t1 t2 Bilaxy c wh
       variance = undefined
     return $ ExchangeRate sellt1 buyt1 variance
 
-flipProxy :: Proxy (t1, t2, BilaxyFlip,c) -> Proxy (t2, t1, Bilaxy,c)
+flipProxy :: Proxy (t1, t2, BilaxyFlip) -> Proxy (t2, t1, Bilaxy)
 flipProxy _ = Proxy
 
 -- current implementation depends on ExchangePair t2 t1 Bilaxy and hence extra constraints
-type BilaxyFlipExchangePairConstraints t1 t2 c = (
+type BilaxyFlipExchangePairConstraints t1 t2 = (
   RealBilaxyPair t2 t1,
-  ExchangeToken t1 BilaxyFlip c,
-  ExchangeToken t2 BilaxyFlip c,
-  ExchangeToken t1 Bilaxy c,
-  ExchangeToken t2 Bilaxy c
+  ExchangeToken t1 BilaxyFlip,
+  ExchangeToken t2 BilaxyFlip,
+  ExchangeToken t1 Bilaxy,
+  ExchangeToken t2 Bilaxy
   )
 
 -- |
 -- UNTESTED
-instance (BilaxyFlipExchangePairConstraints t1 t2 c) => ExchangePair t1 t2 BilaxyFlip c where
+instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyFlip where
   -- uses same pairId as unflipped version
   pairId _ = getPairId (Proxy :: Proxy t2) (Proxy :: Proxy t1)
 
@@ -172,14 +164,14 @@ instance (BilaxyFlipExchangePairConstraints t1 t2 c) => ExchangePair t1 t2 Bilax
 
   -- Note that this returns Bilaxy (not flip) orders too
   getOrders _ = do
-    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip,c))
+    orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1, t2, BilaxyFlip))
     return $ map (BilaxyOrderDetails . BA.oi_id) orders
 
   order _ ot (Amount t1) (Amount t2) = do
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
-      pproxy = Proxy :: Proxy (t2, t1, Bilaxy,c)
+      pproxy = Proxy :: Proxy (t2, t1, Bilaxy)
       amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
       amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
       price_t2 = amount_t2 / amount_t1
@@ -194,5 +186,5 @@ instance (BilaxyFlipExchangePairConstraints t1 t2 c) => ExchangePair t1 t2 Bilax
 
   -- TODO test, not totally sure it's correct...
   getExchangeRate _ = do
-    er <- getExchangeRate (Proxy :: Proxy (t2,t1,Bilaxy,c))
+    er <- getExchangeRate (Proxy :: Proxy (t2,t1,Bilaxy))
     return $ ExchangeRate (buyt1 er) (sellt1 er) (flip $ variance er)

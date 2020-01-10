@@ -52,10 +52,6 @@ type ChainCtx = ((),())
   -- = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
   -- for all n
 
-instance (Network n) => ExchangeCtx (OnChain n) ((),()) where
-  cache = fst
-  account = snd
-
 class (Token t, Network n) => ChainToken t n where
   tokenAddress :: Proxy(t,n) -> Maybe Address
   tokenAddress _ = Nothing
@@ -69,26 +65,26 @@ type family BaseToken t where
   BaseToken TT = 'True
   BaseToken USDT = 'False
 
-class (Token t1, Token t2, Network n, ExchangeCtx (OnChain n) c) => Uniswap (isbase :: Bool) t1 t2 n c where
+class (ChainToken t1 n, ChainToken t2 n) => Uniswap (isbase :: Bool) t1 t2 n where
   -- |
   -- exchanges t1 for t2 where input amount (t1) is fixed
   -- TODO remove chainid url and token arguments, no longer needed
   -- not sure why Proxy (isbase,n) doesn't work...
-  t1t2SwapInput :: forall ex m. (MonadExchange (OnChain n) c m, Exception ex) => Proxy isbase -> Proxy (n,c) -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> m (Either ex TxReceipt)
+  t1t2SwapInput :: forall ex m. (MonadExchange m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> ExchangeT (OnChain n) m (Either ex TxReceipt)
 
-instance (Token t1, Token t2, Network n, ExchangeCtx (OnChain n) c) => Uniswap 'True t1 t2 n c where
+instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'True t1 t2 n where
   t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
-instance (Token t1, Token t2, Network n, ExchangeCtx (OnChain n) c) => Uniswap 'False t1 t2 n c where
+instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'False t1 t2 n where
   t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
-class (Token t1, Token t2, Network n) => UniswapNetwork t1 t2 n where
+class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
 
 instance UniswapNetwork TT USDT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
-getBalanceOf :: forall t n c m. (MonadExchange (OnChain n) c m, ChainToken t n, Network n) => Proxy (t,n,c) -> Address -> m (Amount t)
+getBalanceOf :: forall t n m. (MonadExchange m, ChainToken t n) => Proxy (t,n) -> Address -> ExchangeT (OnChain n) m (Amount t)
 getBalanceOf _ acct = let url = rpc (Proxy :: Proxy n) in
   case tokenAddress (Proxy :: Proxy (t,n)) of
     Just addr -> liftIO $ Amount <$> Q.getTokenBalanceOf url addr acct
@@ -108,21 +104,18 @@ data OnChainOrder = OnChainOrder {
   receipt :: TxReceipt
 }
 
-type ExchangeTokenConstraint t n c = (ChainToken t n, ExchangeCtx (OnChain n) c)
-instance ExchangeTokenConstraint t n c => ExchangeToken t (OnChain n) c where
+instance ChainToken t n => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
        Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
        Nothing   -> liftIO $ Amount <$> Q.getBalance url
 
-type ExchangePairConstraint t1 t2 n c = (
-  ExchangeTokenConstraint t1 n c,
-  ExchangeTokenConstraint t2 n c,
-  Uniswap (BaseToken t1) t1 t2 n c,
-  Uniswap (BaseToken t2) t2 t1 n c,
+type ExchangePairConstraint t1 t2 n = (
+  Uniswap (BaseToken t1) t1 t2 n,
+  Uniswap (BaseToken t2) t2 t1 n,
   UniswapNetwork t1 t2 n)
 
-instance ExchangePairConstraint t1 t2 n c => ExchangePair t1 t2 (OnChain n) c where
+instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
   type Order t1 t2 (OnChain n) = OnChainOrder
@@ -139,8 +132,8 @@ instance ExchangePairConstraint t1 t2 n c => ExchangePair t1 t2 (OnChain n) c wh
   order _ ot t1 t2 = do
     let
       nproxy = Proxy :: Proxy n
-      ncproxy = Proxy :: Proxy (n,c)
-      pproxy = Proxy :: Proxy (t1,t2,OnChain n,c)
+      ncproxy = Proxy :: Proxy (n)
+      pproxy = Proxy :: Proxy (t1,t2,OnChain n)
       addr = pairId pproxy
       cid = chainId nproxy
       url = rpc nproxy
@@ -155,8 +148,8 @@ instance ExchangePairConstraint t1 t2 n c => ExchangePair t1 t2 (OnChain n) c wh
   getExchangeRate pnproxy = do
     let
       nproxy = Proxy :: Proxy n
-      t1nproxy = Proxy :: Proxy (t1,n,c)
-      t2nproxy = Proxy :: Proxy (t2,n,c)
+      t1nproxy = Proxy :: Proxy (t1,n)
+      t2nproxy = Proxy :: Proxy (t2,n)
       uniAddr = pairId pnproxy
       cid = chainId nproxy
       url = rpc nproxy

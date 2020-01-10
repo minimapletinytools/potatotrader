@@ -1,9 +1,12 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 
 module Arbitrage (
   CtxPair(..),
+  ExchangePairT(..),
   ArbitrageLogs,
   ArbitrageConstraints,
   doArbitrage
@@ -23,26 +26,17 @@ type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
 
 -- | context tuple for operations on two exchanges in the same monad
 -- newtype wrapper needed to avoid duplicate instances
-newtype CtxPair e1 e2 = CtxPair { unwrapCtxPair :: (CtxSingle e1, CtxSingle e2) }
-
-instance (Exchange e1) => ExchangeCtx e1 (CtxPair e1 e2) where
-  cache = fst . fst . unwrapCtxPair
-  account = snd . fst . unwrapCtxPair
-
-instance (Exchange e2) => ExchangeCtx e2 (CtxPair e1 e2) where
-  cache = fst . snd . unwrapCtxPair
-  account = snd . snd . unwrapCtxPair
+type CtxPair e1 e2 = (CtxSingle e1, CtxSingle e2)
 
 -- | constraint kind needed for arbitrage operations
 type ArbitrageConstraints t1 t2 e1 e2 m = (
-  ExchangePair t1 t2 e1 (CtxPair e1 e2)
-  , ExchangePair t1 t2 e2 (CtxPair e1 e2)
-  , MonadExchange e1 (CtxPair e1 e2) m
-  , MonadExchange e2 (CtxPair e1 e2) m
+  ExchangePair t1 t2 e1
+  , ExchangePair t1 t2 e2
+  , MonadExchange m
   )
 
 -- | logging type for arbitrage
-data ArbitrageLogs = ArbitrageLogs
+data ArbitrageLogs = ArbitrageLogs deriving (Show)
 
 -- TODO
 instance Semigroup ArbitrageLogs where
@@ -51,22 +45,30 @@ instance Semigroup ArbitrageLogs where
 instance Monoid ArbitrageLogs where
   mempty = ArbitrageLogs
 
--- TODO make writer a concrete type
--- | infinite loop for arbitrage
-doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs m) =>
+type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
+
+--lifte1 :: forall e1 e2 m a. (Exchange e1, Exchange e2) => ExchangeT e1 m a -> ExchangePairT (CtxPair e1 e2) m a
+lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
+lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
+
+doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs (ExchangePairT e1 e2 m)) =>
   Proxy (t1, t2, e1, e2)
-  -> m ()
+  -> ExchangePairT e1 e2 m ()
 doArbitrage proxy = do
 
   -- query and cancel all orders
   qncresult <- try $ do
     let
-      pe1 = Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2)
-      pe2 = Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2)
-    e1orders <- getOrders pe1
-    e2orders <- getOrders pe2
-    mapM_ (cancel pe1) e1orders
-    mapM_ (cancel pe2) e2orders
+      pe1 = Proxy :: Proxy (t1,t2,e1)
+      pe2 = Proxy :: Proxy (t1,t2,e2)
+    --(c1,c2) <- ask
+    --e1orders <- ReaderT $ const $ flip runReaderT c1 $ getOrders pe1
+    lifte1 $ do
+      e1orders <- getOrders pe1
+      mapM_ (cancel pe1) e1orders
+    lifte2 $ do
+      e2orders <- getOrders pe2
+      mapM_ (cancel pe2) e2orders
   case qncresult of
     -- TODO log and error and restart
     Left (SomeException e) -> return ()
@@ -74,10 +76,10 @@ doArbitrage proxy = do
 
   -- query balances
   gbresult <- try $ do
-    t1e1 <- getBalance (Proxy :: Proxy (t1, e1,CtxPair e1 e2))
-    t2e1 <- getBalance (Proxy :: Proxy (t2, e1,CtxPair e1 e2))
-    t1e2 <- getBalance (Proxy :: Proxy (t1, e2,CtxPair e1 e2))
-    t2e2 <- getBalance (Proxy :: Proxy (t2, e2,CtxPair e1 e2))
+    t1e1 <- lifte1 $ getBalance (Proxy :: Proxy (t1, e1))
+    t2e1 <- lifte1 $ getBalance (Proxy :: Proxy (t2, e1))
+    t1e2 <- lifte2 $ getBalance (Proxy :: Proxy (t1, e2))
+    t2e2 <- lifte2 $ getBalance (Proxy :: Proxy (t2, e2))
     return (t1e1, t2e1, t1e2, t2e2)
   (t1e1, t2e1, t1e2, t2e2) <- case gbresult of
     -- TODO log and error and restart
@@ -86,8 +88,8 @@ doArbitrage proxy = do
 
   -- query exchange rate
   erresult <- try $ do
-    exchRate1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1,CtxPair e1 e2))
-    exchRate2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2,CtxPair e1 e2))
+    exchRate1 <- lifte1 $ getExchangeRate (Proxy :: Proxy (t1,t2,e1))
+    exchRate2 <- lifte2 $ getExchangeRate (Proxy :: Proxy (t1,t2,e2))
     return (exchRate1, exchRate2)
   (exchRate1, exchRate2) <- case erresult of
     -- TODO log and error and restart

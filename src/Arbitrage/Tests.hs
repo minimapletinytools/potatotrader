@@ -11,6 +11,7 @@ import           Control.Monad
 import qualified Control.Monad.Catch       as C
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import qualified Control.Monad.Trans       as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import           Exchanges.Bilaxy.Exchange
@@ -22,16 +23,15 @@ import           Types
 
 
 
-type ArbMonad = WriterT ArbitrageLogs (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO)
+type ArbMonad = ExchangePairT (OnChain ThunderCoreMain) Bilaxy (WriterT ArbitrageLogs IO)
 testArbitrage :: forall t1 t2 e1 e2. (ArbitrageConstraints TT USDT (OnChain ThunderCoreMain) Bilaxy ArbMonad) =>
   Test
 testArbitrage = TestCase $ do
   let
-    ctx = CtxPair (((),()),((),())) :: CtxPair (OnChain ThunderCoreMain) Bilaxy
-    arb :: WriterT ArbitrageLogs (ReaderT (CtxPair (OnChain ThunderCoreMain) Bilaxy) IO) ()
+    ctx = (((),()),((),()))
     arb = doArbitrage (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain, Bilaxy))
-  rslt <- flip runReaderT ctx $ runWriterT $ arb
-  --print rslt -- force rslt
+  rslt <- runWriterT $ flip runReaderT ctx $ arb
+  print rslt -- force rslt
   return ()
 
 

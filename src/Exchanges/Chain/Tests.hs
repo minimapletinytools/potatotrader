@@ -19,8 +19,8 @@ flipReaderT = flip runReaderT
 
 test_getBalance :: Test
 test_getBalance = TestCase $ flipReaderT chainCtx $ do
-  b1 <- getBalance (Proxy :: Proxy (TT, OnChain ThunderCoreMain, ChainCtx))
-  b2 <- getBalance (Proxy :: Proxy (USDT, OnChain ThunderCoreMain, ChainCtx))
+  b1 <- getBalance (Proxy :: Proxy (TT, OnChain ThunderCoreMain))
+  b2 <- getBalance (Proxy :: Proxy (USDT, OnChain ThunderCoreMain))
   liftIO $ print (b1, b2) -- not best way to force but whatever
 
 -- TODO delete this test once we have proper ExchangeAccount stuff done
@@ -31,7 +31,7 @@ test_getAddress = TestCase $ flipReaderT chainCtx $ liftIO $ do
 
 test_getExchangeRate :: Test
 test_getExchangeRate = TestCase $ flipReaderT chainCtx $ do
-  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain, ChainCtx))
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain))
   liftIO $ print r
 
 tests :: IO ()
