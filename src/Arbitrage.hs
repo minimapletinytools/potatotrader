@@ -4,6 +4,7 @@
 
 module Arbitrage (
   CtxPair(..),
+  ArbitrageLogs,
   ArbitrageConstraints,
   doArbitrage
 ) where
@@ -14,12 +15,15 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
+import           Data.Semigroup
 import           Types
 
 
 type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
-newtype CtxPair e1 e2 = CtxPair { unwrapCtxPair :: (CtxSingle e1, CtxSingle e2) }
 
+-- | context tuple for operations on two exchanges in the same monad
+-- newtype wrapper needed to avoid duplicate instances
+newtype CtxPair e1 e2 = CtxPair { unwrapCtxPair :: (CtxSingle e1, CtxSingle e2) }
 
 instance (Exchange e1) => ExchangeCtx e1 (CtxPair e1 e2) where
   cache = fst . fst . unwrapCtxPair
@@ -29,13 +33,27 @@ instance (Exchange e2) => ExchangeCtx e2 (CtxPair e1 e2) where
   cache = fst . snd . unwrapCtxPair
   account = snd . snd . unwrapCtxPair
 
+-- | constraint kind needed for arbitrage operations
 type ArbitrageConstraints t1 t2 e1 e2 m = (
   ExchangePair t1 t2 e1 (CtxPair e1 e2)
   , ExchangePair t1 t2 e2 (CtxPair e1 e2)
   , MonadExchange e1 (CtxPair e1 e2) m
   , MonadExchange e2 (CtxPair e1 e2) m
   )
-doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m) =>
+
+-- | logging type for arbitrage
+data ArbitrageLogs = ArbitrageLogs
+
+-- TODO
+instance Semigroup ArbitrageLogs where
+  (<>) = const
+
+instance Monoid ArbitrageLogs where
+  mempty = ArbitrageLogs
+
+-- TODO make writer a concrete type
+-- | infinite loop for arbitrage
+doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs m) =>
   Proxy (t1, t2, e1, e2)
   -> m ()
 doArbitrage proxy = do

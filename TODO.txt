@@ -1,5 +1,13 @@
+:: TODO TMRW::
+-add account abstracted version of some stuff in Chain and Bilaxy query (this is just in prep for using ExchangeAccount. We won't switch all the way over yet)
+-add monadic abstraction for some methods in chain and bilaxy query (also in preparation)
+-write tests to ascertain units and exchange rate stuff is done correctly
+
+
 ::TODO::
+
 - add test cases for all the chain query stuff D:
+- reorg to give everything a package name
 
 ::FUTURE::
 - accounts should not be read in IO monad. They should be passed in as an argument for each private exchange function (using data family for type)
