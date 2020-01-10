@@ -14,7 +14,7 @@ module Types (
 
   Token(..),
   fromStdDenom,
-  ExchangeCtx,
+  ExchangeCtx(..),
   MonadExchange,
   Exchange(..),
   ExchangeToken(..),
@@ -79,16 +79,24 @@ class Exchange e where
   -- TODO generalize account access to the exchange
   type ExchangeAccount e :: *
 
-type ExchangeCtx e = (ExchangeCache e, ExchangeAccount e)
-type MonadExchange e m = (MonadThrow m, MonadIO m, MonadReader (ExchangeCtx e) m)
+class ExchangeCtx e c where
+  cache :: c -> ExchangeCache e
+  account :: c -> ExchangeAccount e
 
-class (Token t, Exchange e) => ExchangeToken t e where
+-- sadly this does not work due to "Illegal typ esynonym family application in instance" error
+--instance ExchangeCtx e (ExchangeCache e, ExchangeAccount e) where
+--  cache = fst
+--  account = snd
+
+type MonadExchange e c m = (MonadCatch m, MonadIO m, ExchangeCtx e c, MonadReader c m)
+
+class (Token t, Exchange e, ExchangeCtx e c) => ExchangeToken t e c where
   -- TODO probably don't need this, it's encapsulated by getBalance
   -- symbol of token on the exchange
-  symbol :: Proxy (t,e) -> String
+  symbol :: Proxy (t,e,c) -> String
   symbol _ = tokenName (Proxy :: Proxy t)
   -- get balance (normalized to lowest denomination)
-  getBalance :: (MonadExchange e m) => Proxy (t,e) -> m (Amount t)
+  getBalance :: (MonadExchange e c m) => Proxy (t,e,c) -> m (Amount t)
 
 
 data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Show)
@@ -97,39 +105,39 @@ data OrderStatus = OrderStatus {
 }
 
 -- maybe simpler way to do type level exchange pairs
-class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
-  pairName :: Proxy (t1,t2,e) -> String
+class (ExchangeToken t1 e c, ExchangeToken t2 e c, ExchangeCtx e c) => ExchangePair t1 t2 e c where
+  pairName :: Proxy (t1,t2,e,c) -> String
   pairName _ =
     exchangeName (Proxy :: Proxy e) ++ " "
     ++ tokenName (Proxy :: Proxy t1) ++ ":"
     ++ tokenName (Proxy :: Proxy t2)
 
   -- | pairID returns a String identifier
-  pairId :: Proxy (t1,t2,e) -> ExchangePairId e
+  pairId :: Proxy (t1,t2,e,c) -> ExchangePairId e
 
   -- | liquidity returns your respective balance in the two tokens
   -- TODO is this the right name for it?
   -- TODO probably just delete this function, there's no reason an exchange would override this implementation
-  liquidity :: (MonadExchange e m) => Proxy (t1,t2,e) -> m (Liquidity t1 t2)
+  liquidity :: (MonadExchange e c m) => Proxy (t1,t2,e) -> m (Liquidity t1 t2)
   liquidity _ = do
-    b1 <- getBalance (Proxy :: Proxy (t1, e))
-    b2 <- getBalance (Proxy :: Proxy (t2, e))
+    b1 <- getBalance (Proxy :: Proxy (t1,e,c))
+    b2 <- getBalance (Proxy :: Proxy (t2,e,c))
     return $ Liquidity b1 b2
 
   -- | getExchangeRate returns the current exchange rate
-  getExchangeRate :: (MonadExchange e m) => Proxy (t1,t2,e) -> m (ExchangeRate t1 t2)
+  getExchangeRate :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> m (ExchangeRate t1 t2)
 
   type Order t1 t2 e :: *
   -- | getOrders returns all unexecuted orders
-  getOrders :: (MonadExchange e m) => Proxy (t1,t2,e) -> m [Order t1 t2 e]
+  getOrders :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> m [Order t1 t2 e]
   getOrders _ = return []
   -- | order buys t1 for t2 tokens OR sells t1 for t2 tokens
-  order :: (MonadExchange e m) => Proxy (t1,t2,e) -> OrderType -> Amount t1 -> Amount t2 -> m (Order t1 t2 e)
-  getStatus :: (MonadExchange e m) => Proxy (t1,t2,e) -> Order t1 t2 e -> m OrderStatus
+  order :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> OrderType -> Amount t1 -> Amount t2 -> m (Order t1 t2 e)
+  getStatus :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> Order t1 t2 e -> m OrderStatus
   -- TODO make this a parameter of the exchange, not the exchange pair?
-  canCancel :: Proxy (t1,t2,e) -> Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
+  canCancel :: Proxy (t1,t2,e,c) -> Order t1 t2 e -> Bool -- or is this a method of OrderStatus?
   canCancel _ _ = False
-  cancel :: (MonadExchange e m) => Proxy (t1,t2,e) -> Order t1 t2 e -> m Bool
+  cancel :: (MonadExchange e c m) => Proxy (t1,t2,e,c) -> Order t1 t2 e -> m Bool
   cancel = undefined
 
 

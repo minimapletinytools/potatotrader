@@ -1,4 +1,5 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 
 module Arbitrage (
@@ -15,14 +16,19 @@ import           Data.Proxy
 import           Types
 
 
+type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
+newtype CtxPair e1 e2 = CtxPair { unwrapCtxPair :: (CtxSingle e1, CtxSingle e2) }
 
--- types to split the reader ctx for each of the exchanges
-type CtxPair e1 e2 = (ExchangeCtx e1, ExchangeCtx e2)
 
-lifte1 = withReaderT fst
-lifte2 = withReaderT snd
+instance (ExchangeCtx e1 (CtxSingle e1)) => ExchangeCtx e1 (CtxPair e1 e2) where
+  cache = fst . fst . unwrapCtxPair
+  account = snd . fst . unwrapCtxPair
 
-type ArbitrageConstraints t1 t2 e1 e2 m = (Token t1, Token t2, Exchange e1, Exchange e2, ExchangePair t1 t2 e1, ExchangePair t1 t2 e2, MonadExchange e1 m, MonadExchange e2 m)
+instance (ExchangeCtx e2 (CtxSingle e2)) => ExchangeCtx e2 (CtxPair e1 e2) where
+  cache = fst . snd . unwrapCtxPair
+  account = snd . snd . unwrapCtxPair
+
+type ArbitrageConstraints t1 t2 e1 e2 m = (Token t1, Token t2, Exchange e1, Exchange e2, ExchangePair t1 t2 e1 (CtxSingle e1), ExchangePair t1 t2 e2 (CtxSingle e2), MonadExchange e1 (CtxSingle e1) m, MonadExchange e2 (CtxSingle e2) m)
 doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m, MonadReader (CtxPair e1 e2) m) =>
   Proxy (t1, t2, e1, e2)
   -> m ()
@@ -31,10 +37,10 @@ doArbitrage proxy = do
   -- query and cancel all orders
   qncresult <- C.try $ do
     let
-      pe1 = Proxy :: Proxy (t1,t2,e1)
-      pe2 = Proxy :: Proxy (t1,t2,e2)
-    e1orders <- lifte1 $ getOrders pe1
-    e2orders <- lifte2 $ getOrders pe2
+      pe1 = Proxy :: Proxy (t1,t2,e1,CtxSingle e1)
+      pe2 = Proxy :: Proxy (t1,t2,e2,CtxSingle e2)
+    e1orders <- getOrders pe1
+    e2orders <- getOrders pe2
     mapM_ (cancel pe1) e1orders
     mapM_ (cancel pe2) e2orders
   case qncresult of
@@ -44,10 +50,10 @@ doArbitrage proxy = do
 
   -- query balances
   gbresult <- C.try $ do
-    t1e1 <- getBalance (Proxy :: Proxy (t1, e1))
-    t2e1 <- getBalance (Proxy :: Proxy (t2, e1))
-    t1e2 <- getBalance (Proxy :: Proxy (t1, e2))
-    t2e2 <- getBalance (Proxy :: Proxy (t2, e2))
+    t1e1 <- getBalance (Proxy :: Proxy (t1, e1,CtxSingle e1))
+    t2e1 <- getBalance (Proxy :: Proxy (t2, e1,CtxSingle e1))
+    t1e2 <- getBalance (Proxy :: Proxy (t1, e2,CtxSingle e2))
+    t2e2 <- getBalance (Proxy :: Proxy (t2, e2,CtxSingle e2))
     return (t1e1, t2e1, t1e2, t2e2)
   (t1e1, t2e1, t1e2, t2e2) <- case gbresult of
     -- TODO log and error and restart
@@ -55,9 +61,9 @@ doArbitrage proxy = do
     Right r                -> return r
 
   -- query exchange rate
-  erresult <- liftIO . try $ do
-    er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1))
-    er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2))
+  erresult <- C.try $ do
+    er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1,CtxSingle e1))
+    er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2,CtxSingle e2))
     return (er1, er2)
   (er1, er2) <- case erresult of
     -- TODO log and error and restart

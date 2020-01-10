@@ -28,7 +28,7 @@ assertThrows action = do
 -- test methods in Query.hs directly
 testPublic :: Test
 testPublic = TestCase $ do
-  r <- getTicker $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy))
+  r <- getTicker $ pairId (Proxy :: Proxy (TT,USDT,Bilaxy,BilaxyCtx))
   print r -- not best way to force r but whatever
 
 testPrivate :: Test
@@ -40,8 +40,8 @@ testPrivate = TestCase $ do
 -- test class methods in Exchange.hs
 test_getBalance :: Test
 test_getBalance = TestCase $ flipReaderT bilaxyCtx $ do
-  b1 <- getBalance (Proxy :: Proxy (TT, Bilaxy))
-  b2 <- getBalance (Proxy :: Proxy (USDT, Bilaxy))
+  b1 <- getBalance (Proxy :: Proxy (TT,Bilaxy,BilaxyCtx))
+  b2 <- getBalance (Proxy :: Proxy (USDT,Bilaxy,BilaxyCtx))
   liftIO $ print (b1,b2) -- not best way to force b1/b2 but whatever
 
 test_getOrderInfo :: Test
@@ -50,19 +50,19 @@ test_getOrderInfo = TestCase $ flipReaderT bilaxyCtx $
 
 test_getOrders :: Test
 test_getOrders = TestCase $ flipReaderT bilaxyCtx $ do
-  orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy))
+  orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy,BilaxyCtx))
   liftIO $ print orders
 
 test_getExchangeRate :: Test
 test_getExchangeRate = TestCase $ flipReaderT bilaxyCtx $ do
-  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy))
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy,BilaxyCtx))
   liftIO $ print r
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
 test_order_cancel :: Test
 test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
-  let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
+  let p = (Proxy :: Proxy (TT,USDT,Bilaxy,BilaxyCtx))
   o <- order p Sell (fromStdDenom 9) (fromStdDenom 123)
   r <- cancel p o
   liftIO $ print (o, r)
