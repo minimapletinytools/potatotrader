@@ -1,4 +1,5 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
 
 
 module Arbitrage (
@@ -14,13 +15,26 @@ import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import           Types
 
+-- for testing
+import           Exchanges.Bilaxy.Exchange
+import           Exchanges.Chain.Exchange
 
+-- TODO move to test
+testArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m, MonadReader (ExchangeCtx e1) m, MonadReader (ExchangeCtx e2) m) =>
+  IO ((),w)
+testArbitrage = do
+  let
+    chainCtx = ((),()) :: ChainCtx ThunderCoreMain
+    bilaxyCtx = ((),()) :: BilaxyCtx
+  runWriterT $ flip runReaderT chainCtx $ flip runReaderT bilaxyCtx $ doArbitrage (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain, Bilaxy))
+
+
+type ArbitrageConstraints t1 t2 e1 e2 m = (Token t1, Token t2, Exchange e1, Exchange e2, ExchangePair t1 t2 e1, ExchangePair t1 t2 e2, MonadExchange e1 m, MonadExchange e2 m)
 
 -- types to split the reader ctx for each of the exchanges
 type CtxPair e1 e2 = (ExchangeCtx e1, ExchangeCtx e2)
 
-type ArbitrageConstraints t1 t2 e1 e2 m = (Token t1, Token t2, Exchange e1, Exchange e2, ExchangePair t1 t2 e1, ExchangePair t1 t2 e2, MonadExchange e1 m, MonadExchange e2 m)
-doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m, MonadReader (CtxPair e1 e2) m) =>
+doArbitrage :: forall t1 t2 e1 e2 w m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter w m, MonadReader (ExchangeCtx e1) m, MonadReader (ExchangeCtx e2) m) =>
   Proxy (t1, t2, e1, e2)
   -> m ()
 doArbitrage proxy = do
@@ -52,7 +66,7 @@ doArbitrage proxy = do
     Right r                -> return r
 
   -- query exchange rate
-  erresult <- liftIO . try $ do
+  erresult <- C.try $ do
     er1 <- getExchangeRate (Proxy :: Proxy (t1,t2,e1))
     er2 <- getExchangeRate (Proxy :: Proxy (t1,t2,e2))
     return (er1, er2)
