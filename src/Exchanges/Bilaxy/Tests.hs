@@ -73,17 +73,13 @@ testBids :: [(Amount USDT, Amount TT)]
 testBids =
   [ (Amount 100, Amount 100)
   , (Amount 90, Amount 200)
-  , (Amount 80, Amount 100)
-  , (Amount 70, Amount 100)
-  , (Amount 70, Amount 10000000000)]
+  , (Amount 80, Amount 100)]
 
 testAsks :: [(Amount TT, Amount USDT)]
 testAsks =
   [ (Amount 100, Amount 100)
   , (Amount 110, Amount 200)
-  , (Amount 120, Amount 100)
-  , (Amount 130, Amount 100)
-  , (Amount 150, Amount 10000000000)]
+  , (Amount 120, Amount 100)]
 
 test_make_sellt1 :: Spec
 test_make_sellt1 = do

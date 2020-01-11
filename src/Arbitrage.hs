@@ -116,13 +116,44 @@ doArbitrage _ = do
     Left (SomeException e) -> undefined
     Right r                -> return r
 
+
+  let
+  -- construct t1t2e1 t2t1e1 t1t2e2 t2t1e2
+    sellt1_e1 = sellt1 exchRate1
+    buyt1_e1 = buyt1 exchRate1
+    sellt1_e2 = sellt1 exchRate2
+    buyt1_e2 = buyt1 exchRate2
+
+    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
+    --in this case, we are selling t1 on e1
+    t1t2e1 in_t1e1 = in_t1e1 / sellt1_e1 in_t1e1
+
+    --t2:t1 exchange ratio for input amount t1e1_in on exchange e1
+    -- in this case, we are buying t1 on e1
+    t2t1e1 in_t2e1 = buyt1_e1 in_t2e1 / in_t2e1
+
+    --t1:t2 exchange ratio for input amount in_t1e2 on exchange e2
+    --in this case, we are selling t1 on e1
+    t1t2e2 in_t1e2 = in_t1e2 / sellt1_e2 in_t1e2
+
+    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
+    -- in this case, we are buying t1 on e2
+    t2t1e2 in_t2e2 = buyt1_e2 in_t2e2 / in_t2e2
+
+
+
+
+  -- do basic check of exchange rate direction
+  -- note we assume `t1t2e1 x > t1t2e2 x` for all `x > 0`
+
   {-
 
   -- terminology
   -- * b_tiek - balance in ti tokens on ek
   -- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek
   --  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1
-  -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage on el)
+  --  N.B that t1t2ek and t2t1ek are usually different
+  -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
   --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
 
 
@@ -137,17 +168,7 @@ doArbitrage _ = do
 
   -- TODO abstract this in t1 t2 e1 e2 and use in commented line of code above
   -- TODO add tx fees...
-  let
-    sellt1_e1 = sellt1 exchRate1
-    buyt1_e2 = buyt1 exchRate2
 
-    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
-    --in this case, we are selling t1 on e1
-    t1t2e1 in_t1e1 = in_t1e1 / sellt1_e1 in_t1e1
-
-    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
-    -- in this case, we are buying t1 on e2
-    t2t1e2 in_t2e2 = buyt1_e2 in_t2e2 / in_t2e2
 
     -- profit of t1 on exchange e2 after successful arbitrage
     profit_t1e2 in_t1e1 = 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1))
@@ -164,13 +185,42 @@ doArbitrage _ = do
 
 
 
+
+-- |
+-- DELETE
+profit ::
+  (Token t1, Token t2, Exhange e1, Exchange e2)
+  => (Amount t1, Amount t2) -- ^ e1 balances
+  -> (Amount t1, Amount t2) -- ^ e2 balances
+  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
+  -> (Amount t2 -> Amount t1) -- ^ buyt1_e1
+  -> (Amount t1 -> Amount t2) -- ^ sellt1_e2
+  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
+  ->
+profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = undefined where
+    -- construct t1t2e1 t2t1e1 t1t2e2 t2t1e2
+    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
+    --in this case, we are selling t1 on e1
+    t1t2e1 in_t1e1 = fromIntegral in_t1e1 / fromIntegral (sellt1_e1 in_t1e1)
+    --t2:t1 exchange ratio for input amount t1e1_in on exchange e1
+    -- in this case, we are buying t1 on e1
+    t2t1e1 in_t2e1 = fromIntegral (buyt1_e1 in_t2e1) / fromIntegral in_t2e1
+    --t1:t2 exchange ratio for input amount in_t1e2 on exchange e2
+    --in this case, we are selling t1 on e1
+    t1t2e2 in_t1e2 = fromIntegral in_t1e2 / fromIntegral (sellt1_e2 in_t1e2)
+    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
+    -- in this case, we are buying t1 on e2
+    t2t1e2 in_t2e2 = fromIntegral (buyt1_e2 in_t2e2) / fromIntegral in_t2e2
+
+    profit_t1ek
+
 -- |
 profit_t1e2 ::
   (Token t1, Token t2) =>
   Amount t1 -- ^ t1 tokens to sell on e1
-  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
-  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> Amount t1 -- ^ profit in t1 on e2
+  -> (Amount t1 -> Double) -- ^ sellt1_e1
+  -> (Amount t2 -> Double) -- ^ buyt1_ek
+  -> Amount t1 -- ^ profit in t1 on ek
 profit_t1e2 in_t1e1 sellt1_e1 buyt1_e2 = Amount . floor $ 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1)) where
   --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
   --in this case, we are selling t1 on e1
@@ -180,7 +230,7 @@ profit_t1e2 in_t1e1 sellt1_e1 buyt1_e2 = Amount . floor $ 1/(t1t2e1 in_t1e1 * t2
   t2t1e2 in_t2e2' = fromIntegral (buyt1_e2 in_t2e2') / fromIntegral in_t2e2'
 
 -- TODO improve this to search multiple possible local maxima
-searchMax :: (Show a, Show b,  NFData a, Integral a, Ord b) =>
+searchMax :: (Show a, Show b,  NFData b, Integral a, Ord b) =>
   [Int] -- ^ search resolution
   -> (a,a) -- ^ search domain
   ->  (a->b) -- ^ function to search
@@ -193,7 +243,7 @@ searchMax (n':ns) (mn,mx) f = r where
     range = [mn..mx]
   pts = [mn+step*fromIntegral i | i<-[0..n]]
   -- compute values in parallel
-  vals = parMap rpar f pts
+  vals = parMap rdeepseq f pts
   -- find the maximum value
   (_,maxp) = foldl1 (\(m,mp) (x,p) -> if x > m then (x,p) else (m,mp)) (zip vals pts)
   -- construct the new search domain and recurse

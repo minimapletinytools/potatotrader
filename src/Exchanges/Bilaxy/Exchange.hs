@@ -95,7 +95,6 @@ make_sellt1 bids (Amount t1) = Amount r where
   boughtt2Executed = takeWhile (> 0) boughtt2Array
   r = sum boughtt2Executed
 
--- TODO extra test this one...
 -- | takes a list of market order asks for t1 (in base denomination)
 -- (people trying to sell t2 for t1)
 -- and creates the buyt1 function that shows how much t1 can be bought for a given quantity of t2
@@ -170,8 +169,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     let
       buyt1 (Amount t2) = Amount $ 0
       variance = undefined
-    --return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
-    undefined
+    return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
 
 flipProxy :: Proxy (t1, t2, BilaxyFlip) -> Proxy (t2, t1, Bilaxy)
 flipProxy _ = Proxy
