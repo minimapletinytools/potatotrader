@@ -4,7 +4,11 @@
 module Exchanges.Bilaxy.Exchange (
   Bilaxy(..),
   BilaxyCtx,
-  BilaxyOrderDetails(..)
+  BilaxyOrderDetails(..),
+
+  -- exported for testing
+  make_sellt1,
+  make_buyt1
 ) where
 
 import           Control.Exception
@@ -14,6 +18,8 @@ import           Data.Proxy
 import qualified Exchanges.Bilaxy.Aeson as BA
 import           Exchanges.Bilaxy.Query
 import           Types
+
+import Debug.Trace
 
 
 class (Token t1, Token t2) => RealBilaxyPair t1 t2 where
@@ -75,11 +81,14 @@ data BilaxyOrderDetails = BilaxyOrderDetails {
 -- | takes a list of market order bids for t1 (in base denomination)
 -- (people trying to buy t1 using t2)
 -- and creates the sellt1 function that shows how much t2 can be obtained from selling a given quantity t1
-make_sellt1 :: [(Amount t2, Amount t1)] -> Amount t1 -> Amount t2
+make_sellt1 ::
+  [(Amount t2, Amount t1)] -- ^ list of market bids
+  -> Amount t1 -- ^ amount of t1 to be sold
+  -> Amount t2 -- ^ amount of t2 bought
 make_sellt1 bids (Amount t1) = Amount r where
   myFunc :: Integer -> (Amount t2, Amount t1) -> (Integer, Integer)
   myFunc remainingt1 (Amount price, Amount volume) = (remainingt1-paidt1, boughtt2) where
-    boughtt2 = min (remainingt1 * price) volume
+    boughtt2 = min (remainingt1 * price) (volume * price)
     paidt1 = boughtt2 `div` price
   (remaining, boughtt2Array) = mapAccumL myFunc t1 bids
   -- TODO log a warning if remaining > 0 (means we bought the whole market and had some left over)
@@ -90,12 +99,15 @@ make_sellt1 bids (Amount t1) = Amount r where
 -- | takes a list of market order asks for t1 (in base denomination)
 -- (people trying to sell t2 for t1)
 -- and creates the buyt1 function that shows how much t1 can be bought for a given quantity of t2
-make_buyt1 :: [(Amount t2, Amount t1)] -> Amount t2 -> Amount t1
+make_buyt1 ::
+  [(Amount t2, Amount t1)] -- ^ list of market asks
+  -> Amount t2 -- ^ amount of t2 to be sold
+  -> Amount t1 -- ^ amount of t1 bought
 make_buyt1 bids (Amount t2) = Amount r where
   myFunc :: Integer -> (Amount t2, Amount t1) -> (Integer, Integer)
   myFunc remainingt2 (Amount price, Amount volume) = (remainingt2-paidt2, boughtt1) where
-    boughtt1 = min (remainingt2 * price) volume
-    paidt2 = boughtt1 `div` price
+    boughtt1 = min (remainingt2 `div` price) volume
+    paidt2 = boughtt1 * price
   (remaining, boughtt1Array) = mapAccumL myFunc t2 bids
   -- TODO log a warning if remaining > 0 (means we bought the whole market and had some left over)
   boughtt1Executed = takeWhile (> 0) boughtt1Array
@@ -158,7 +170,8 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     let
       buyt1 (Amount t2) = Amount $ 0
       variance = undefined
-    return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
+    --return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
+    undefined
 
 flipProxy :: Proxy (t1, t2, BilaxyFlip) -> Proxy (t2, t1, Bilaxy)
 flipProxy _ = Proxy

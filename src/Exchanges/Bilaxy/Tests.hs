@@ -68,7 +68,52 @@ test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
   liftIO $ print (o, r)
 
 
+
+testBids :: [(Amount USDT, Amount TT)]
+testBids =
+  [ (Amount 100, Amount 100)
+  , (Amount 90, Amount 200)
+  , (Amount 80, Amount 100)
+  , (Amount 70, Amount 100)
+  , (Amount 70, Amount 10000000000)]
+
+testAsks :: [(Amount TT, Amount USDT)]
+testAsks =
+  [ (Amount 100, Amount 100)
+  , (Amount 110, Amount 200)
+  , (Amount 120, Amount 100)
+  , (Amount 130, Amount 100)
+  , (Amount 150, Amount 10000000000)]
+
+test_make_sellt1 :: Spec
+test_make_sellt1 = do
+  let
+    mySellt1 = make_sellt1 testBids
+  it "returns expected value for boundary bids" $ do
+    mySellt1 (Amount 100) `shouldBe` Amount (100*100)
+    mySellt1 (Amount (100+200)) `shouldBe` Amount (100*100+200*90)
+  it "returns correct value for partially executed bid" $ do
+    mySellt1 (Amount (100+100)) `shouldBe` Amount (100*100+100*90)
+
+test_make_buyt1 :: Spec
+test_make_buyt1 = do
+  let
+    myBuyt1 = make_buyt1 testAsks
+  it "returns expected value for boundary bids" $ do
+    myBuyt1 (Amount 10000) `shouldBe` Amount (100)
+    myBuyt1 (Amount (100*100+110*200)) `shouldBe` Amount (100+200)
+  it "returns correct value for partially executed bid" $ do
+    myBuyt1 (Amount (100*100+110*100)) `shouldBe` Amount (100+100)
+
 tests :: IO ()
+tests = hspec $
+  describe "Bilaxy" $ do
+    describe "make_sellt1" $
+      test_make_sellt1
+    describe "make_buyt1" $
+      test_make_buyt1
+
+{-tests :: IO ()
 tests = hspec $
   describe "Bilaxy" $ do
     describe "Public API" $
@@ -82,4 +127,4 @@ tests = hspec $
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
     describe "order_cancel" $
-      fromHUnitTest test_order_cancel
+      fromHUnitTest test_order_cancel-}
