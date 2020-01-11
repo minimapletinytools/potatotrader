@@ -46,6 +46,7 @@ default-extensions:
 - MultiParamTypeClasses
 
 
+
 dependencies:
 - base >= 4.7 && < 5
 - aeson
@@ -67,6 +68,8 @@ dependencies:
 - hspec-contrib
 - mtl
 - exceptions
+- parallel
+- deepseq
 
 library:
   source-dirs: src

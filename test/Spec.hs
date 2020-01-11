@@ -5,5 +5,5 @@ import qualified Exchanges.Chain.Tests
 main :: IO ()
 main = do
   Exchanges.Bilaxy.Tests.tests
-  Exchanges.Chain.Tests.tests
+  --Exchanges.Chain.Tests.tests
   Arbitrage.Tests.tests

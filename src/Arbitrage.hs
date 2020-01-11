@@ -9,7 +9,9 @@ module Arbitrage (
   ExchangePairT(..),
   ArbitrageLogs,
   ArbitrageConstraints,
-  doArbitrage
+  doArbitrage,
+
+  searchMax -- just for testing
 ) where
 
 import           Control.Monad
@@ -17,9 +19,12 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
+import           Control.Parallel.Strategies
 import           Data.Proxy
 import           Data.Semigroup
 import           Types
+
+import           Debug.Trace
 
 
 type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
@@ -157,4 +162,72 @@ doArbitrage _ = do
 
   return ()
 
---profit
+
+
+-- |
+profit_t1e2 ::
+  (Token t1, Token t2) =>
+  Amount t1 -- ^ t1 tokens to sell on e1
+  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
+  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
+  -> Amount t1 -- ^ profit in t1 on e2
+profit_t1e2 in_t1e1 sellt1_e1 buyt1_e2 = Amount . floor $ 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1)) where
+  --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
+  --in this case, we are selling t1 on e1
+  t1t2e1 in_t1e1' = fromIntegral in_t1e1' / fromIntegral (sellt1_e1 in_t1e1')
+  --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
+  -- in this case, we are buying t1 on e2
+  t2t1e2 in_t2e2' = fromIntegral (buyt1_e2 in_t2e2') / fromIntegral in_t2e2'
+
+-- TODO improve this to search multiple possible local maxima
+searchMax :: (Show a, Show b,  NFData a, Integral a, Ord b) =>
+  [Int] -- ^ search resolution
+  -> (a,a) -- ^ search domain
+  ->  (a->b) -- ^ function to search
+  -> a -- ^ max value
+searchMax [] (mn,mx) f = if f mn > f mx then mn else mx
+searchMax (n':ns) (mn,mx) f = r where
+  -- first split the domain including boundary points
+  step' = (mx-mn) `div` fromIntegral n'
+  (n,step) = if step' == 0 then (length range, 1) else (n',step') where
+    range = [mn..mx]
+  pts = [mn+step*fromIntegral i | i<-[0..n]]
+  -- compute values in parallel
+  vals = parMap rpar f pts
+  -- find the maximum value
+  (_,maxp) = foldl1 (\(m,mp) (x,p) -> if x > m then (x,p) else (m,mp)) (zip vals pts)
+  -- construct the new search domain and recurse
+  back = max mn (maxp-step)
+  front = min mx (maxp+step)
+  r = if step == 1 then maxp else searchMax ns (back, front) f
+
+
+-- | runs profit_t1e2
+maximize_profit_t1e2 ::
+  (Token t1, Token t2) =>
+  Amount t1 -- ^ t1 balance on e1
+  -> Amount t2 -- ^ t2 balance on e2
+  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
+  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
+  -> (Amount t1, Amount t2) -- ^ amount t1 to sell on e1 and amount t2 to sell on e2
+maximize_profit_t1e2 b_t1e1 b_t2e2 sellt1_e1 buyt1_e2 = undefined
+
+
+
+
+
+
+
+
+
+
+-- | runs profit_t1e2 or profit_t2e1
+{-profitMix ::
+  (Token t1, Token t2, Exchange e1, Exchange e2) =>
+  (Amount t1, Amount t2) -- ^ exchange 1 balance
+  -> (Amount t1, Amount t2) -- ^ exchange 2 balance
+  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
+  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
+  -> (Amount t1, Amount t2) -- ^ amount t1 to sell on e1 and amount t2 to sell on e2
+profitMix (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e2 =
+-}

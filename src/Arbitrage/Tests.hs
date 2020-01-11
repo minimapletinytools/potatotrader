@@ -35,7 +35,22 @@ testArbitrage = TestCase $ do
   return ()
 
 
+test_searchMax :: Spec
+test_searchMax = do
+  let
+    res1 = [10,10,10]
+    range1 = (0,100)
+    f1_1 x = x
+    f1_2 x = if x < 50 then x else 100-x
+  it "returns right most value for f x = x" $
+    f1_1 (searchMax res1 range1 f1_1) `shouldBe` (100 :: Int)
+  it "returns correct max value for ^ looking function" $
+    f1_2 (searchMax res1 range1 f1_2) `shouldBe` (50 :: Int)
+
+
 tests :: IO ()
-tests = hspec $
-  describe "Arbitrage" $
-    fromHUnitTest testArbitrage
+tests = hspec $ do
+  --describe "Arbitrage" $
+  --  fromHUnitTest testArbitrage
+  describe "searchMax" $
+    test_searchMax
