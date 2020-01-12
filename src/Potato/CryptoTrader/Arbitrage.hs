@@ -139,11 +139,12 @@ doArbitrage _ = do
         in_t2e2 = out_t2e1
         out_t1e2 = buyt1_e2 in_t2e2
       -- sell t1 on e1
-      lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Sell in_t1e1 out_t2e1
+      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Sell in_t1e1 out_t2e1
       -- buy t1 on e2
-      lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
+      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
+      trace (show (in_t1e1, out_t2e1, out_t1e2)) $ return ()
     Right in_t1e2 ->
-      undefined
+      trace "other way" $ undefined
 
   return ()
 

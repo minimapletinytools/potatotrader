@@ -1,5 +1,6 @@
 module Main where
 
+import           Potato.CryptoTrader
 import qualified Potato.CryptoTrader.Exchanges.Bilaxy
 import qualified Potato.CryptoTrader.Exchanges.Chain
 

@@ -39,7 +39,8 @@ import           Data.Solidity.Prim.Address (Address)
 import           GHC.Generics
 
 -- | type safe representation of a currency amount in its base (smallest) denomination
-newtype Amount t = Amount Integer deriving (Eq, Ord, Num, Show, Read, Enum, Real, Integral, Generic, NFData)
+newtype Amount t = Amount Integer
+  deriving (Eq, Ord, Show, Read, Enum, Num, Integral, Real, Generic, NFData)
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 

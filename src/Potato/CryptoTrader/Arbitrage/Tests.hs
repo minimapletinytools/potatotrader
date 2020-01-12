@@ -50,7 +50,7 @@ test_searchMax = do
 
 tests :: IO ()
 tests = hspec $ do
-  --describe "Arbitrage" $
-  --  fromHUnitTest testArbitrage
-  describe "searchMax" $
-    test_searchMax
+  describe "Arbitrage" $
+    fromHUnitTest testArbitrage
+  --describe "searchMax" $
+  --  test_searchMax
