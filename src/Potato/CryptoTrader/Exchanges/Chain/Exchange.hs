@@ -11,7 +11,7 @@
 {-# LANGUAGE UndecidableInstances  #-}
 
 
-module Exchanges.Chain.Exchange (
+module Potato.CryptoTrader.Exchanges.Chain.Exchange (
   ThunderCoreMain(..),
   EthereumMain(..),
 
@@ -22,10 +22,10 @@ module Exchanges.Chain.Exchange (
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Proxy
-import           Data.Solidity.Prim.Address (Address)
-import qualified Exchanges.Chain.Query      as Q
-import           Network.Ethereum.Api.Types (TxReceipt (..))
-import           Types
+import           Data.Solidity.Prim.Address                (Address)
+import           Network.Ethereum.Api.Types                (TxReceipt (..))
+import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
+import           Potato.CryptoTrader.Types
 
 -- network
 class Network n where

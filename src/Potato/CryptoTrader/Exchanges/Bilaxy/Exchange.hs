@@ -1,7 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
-module Exchanges.Bilaxy.Exchange (
+module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
   RealBilaxyPair(..),
   Bilaxy(..),
   BilaxyCache,
@@ -16,11 +16,11 @@ module Exchanges.Bilaxy.Exchange (
 
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Data.List              (mapAccumL)
+import           Data.List                                  (mapAccumL)
 import           Data.Proxy
-import qualified Exchanges.Bilaxy.Aeson as BA
-import           Exchanges.Bilaxy.Query
-import           Types
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Types
 
 import           Debug.Trace
 

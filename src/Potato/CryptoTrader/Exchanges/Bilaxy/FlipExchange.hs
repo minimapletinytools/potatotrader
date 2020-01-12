@@ -1,18 +1,18 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
-module Exchanges.Bilaxy.FlipExchange (
+module Potato.CryptoTrader.Exchanges.Bilaxy.FlipExchange (
   BilaxyFlip(..)
 ) where
 
 import           Control.Exception
 import           Control.Monad.IO.Class
-import           Data.List                 (mapAccumL)
+import           Data.List                                     (mapAccumL)
 import           Data.Proxy
-import qualified Exchanges.Bilaxy.Aeson    as BA
-import           Exchanges.Bilaxy.Exchange
-import           Exchanges.Bilaxy.Query
-import           Types
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson    as BA
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Types
 
 -- | Bilaxy exchange type where trading pairs are flipped
 data BilaxyFlip
@@ -50,8 +50,6 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
   type Order t1 t2 BilaxyFlip = BilaxyOrderDetails
 
   getStatus p = getStatus (flipProxy p)
-
-  canCancel p = canCancel (flipProxy p)
 
   cancel p = cancel (flipProxy p)
 

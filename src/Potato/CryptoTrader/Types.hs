@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module Types (
+module Potato.CryptoTrader.Types (
   Amount(..),
   Liquidity(..),
   OrderType(..),

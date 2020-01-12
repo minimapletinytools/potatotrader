@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 
-module Arbitrage (
+module Potato.CryptoTrader.Arbitrage (
   CtxPair(..),
   ExchangePairT(..),
   ArbitrageLogs,
@@ -22,7 +22,7 @@ import           Control.Monad.Writer.Lazy
 import           Control.Parallel.Strategies
 import           Data.Proxy
 import           Data.Semigroup
-import           Types
+import           Potato.CryptoTrader.Types
 
 import           Debug.Trace
 

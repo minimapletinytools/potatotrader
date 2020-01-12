@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Exchanges.Bilaxy.Query (
+module Potato.CryptoTrader.Exchanges.Bilaxy.Query (
   DecodeError(..),
 
   getTicker,
@@ -21,26 +21,26 @@ module Exchanges.Bilaxy.Query (
 where
 
 import           Control.Exception
-import           Control.Monad              (mapM_)
+import           Control.Monad                              (mapM_)
 import           Control.Monad.Catch
-import qualified Crypto.Hash.SHA1           as SHA1
+import qualified Crypto.Hash.SHA1                           as SHA1
 import           Data.Aeson
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Builder    as BSB
-import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString.UTF8       as BS
-import qualified Data.Map                   as M
-import           Data.Sort                  (sort)
+import qualified Data.ByteString                            as BS
+import qualified Data.ByteString.Builder                    as BSB
+import qualified Data.ByteString.Lazy                       as LBS
+import qualified Data.ByteString.Lazy.Char8                 as L8
+import qualified Data.ByteString.UTF8                       as BS
+import qualified Data.Map                                   as M
+import           Data.Sort                                  (sort)
 import           Data.Text.Encoding
 import           Data.UnixTime
-import           Debug.Trace                (trace)
-import qualified Exchanges.Bilaxy.Aeson     as BA
+import           Debug.Trace                                (trace)
 import           Network.HTTP.Simple
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
+import qualified Potato.CryptoTrader.Types                  as T
 import           System.IO
 import           System.IO.Error
 import           Text.Printf
-import qualified Types                      as T
 
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks

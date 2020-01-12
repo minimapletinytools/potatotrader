@@ -2,13 +2,13 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
-module ReverseExchangePair (
+module Potato.CryptoTrader.ReverseExchangePair (
   ReverseExchangePair(..),
   ReverseOrder(..)
 ) where
 
 import           Data.Proxy
-import           Types
+import           Potato.CryptoTrader.Types
 
 data ReverseExchangePair t2 t1 e = ReverseExchangePair
 
@@ -47,5 +47,5 @@ instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1
     nt = if ot == Buy then Sell else Buy
   -- TODO pretty sure nothing needs to be done to returned OrderStatus but double check...
   getStatus _ (ReverseOrder o) = getStatus (Proxy :: Proxy (t1,t2,e)) o
-  canCancel _ (ReverseOrder o) = canCancel (Proxy :: Proxy (t1,t2,e)) o
+  --canCancel _ (ReverseOrder o) = canCancel (Proxy :: Proxy (t1,t2,e)) o
   cancel _ (ReverseOrder o) = cancel (Proxy :: Proxy (t1,t2,e)) o

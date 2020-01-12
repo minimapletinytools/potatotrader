@@ -1,17 +1,17 @@
-module Exchanges.Bilaxy.Tests (
+module Potato.CryptoTrader.Exchanges.Bilaxy.Tests (
   tests
 ) where
 
 import           Control.Exception
-import qualified Control.Monad.Catch       as C
+import qualified Control.Monad.Catch                           as C
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Exchanges.Bilaxy.Exchange
-import           Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit  (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit                      (fromHUnitTest)
 import           Test.HUnit
-import           Types
 
 type BilaxyReaderIO = ReaderT BilaxyCtx IO
 bilaxyCtx = ((),())
