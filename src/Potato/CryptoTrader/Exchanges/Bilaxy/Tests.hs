@@ -69,14 +69,14 @@ test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
 
 
 
-testBids :: [(Amount USDT, Amount TT)]
-testBids =
+testAsks :: [(Amount USDT, Amount TT)]
+testAsks =
   [ (Amount 100, Amount 100)
   , (Amount 90, Amount 200)
   , (Amount 80, Amount 100)]
 
-testAsks :: [(Amount TT, Amount USDT)]
-testAsks =
+testBids :: [(Amount TT, Amount USDT)]
+testBids =
   [ (Amount 100, Amount 100)
   , (Amount 110, Amount 200)
   , (Amount 120, Amount 100)]
@@ -84,7 +84,7 @@ testAsks =
 test_make_sellt1 :: Spec
 test_make_sellt1 = do
   let
-    mySellt1 = make_sellt1 testBids
+    mySellt1 = make_sellt1 testAsks
   it "returns expected value for boundary bids" $ do
     mySellt1 (Amount 100) `shouldBe` Amount (100*100)
     mySellt1 (Amount (100+200)) `shouldBe` Amount (100*100+200*90)
@@ -94,7 +94,7 @@ test_make_sellt1 = do
 test_make_buyt1 :: Spec
 test_make_buyt1 = do
   let
-    myBuyt1 = make_buyt1 testAsks
+    myBuyt1 = make_buyt1 testBids
   it "returns expected value for boundary bids" $ do
     myBuyt1 (Amount 10000) `shouldBe` Amount (100)
     myBuyt1 (Amount (100*100+110*200)) `shouldBe` Amount (100+200)

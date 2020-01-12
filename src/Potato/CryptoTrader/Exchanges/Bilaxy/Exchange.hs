@@ -151,11 +151,14 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       t2d = fromInteger $ decimals (Proxy :: Proxy t2)
       fixDecimals = map (\(BA.MarketOrder p v _) -> (Amount . ceiling $ p*t2d :: Amount t2, Amount . floor $ v*t1d :: Amount t1))
       -- price is always in t2, volume in t1
-      -- asks are people trying to sell t2 for t1
+      -- in this case t1 is the token being traded, and t2 is the base token
+      -- TODO/NOTE I'm unsure if this interpretation is consistent accross all trading pairs. I only checked for TT/USDT
+      -- asks are people trying to sell t1 for t2
       asks = fixDecimals $ BA.asks depth
-      -- bids are people trying to buy t2 with t1
+      -- bids are people trying to buy t1 with t2
       bids = fixDecimals $ BA.bids depth
     let
       buyt1 (Amount t2) = Amount $ 0
       variance = undefined
-    return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
+    trace (show $ take 5 asks) $ return ()
+    return $ ExchangeRate (make_sellt1 asks) (make_buyt1 bids) variance
