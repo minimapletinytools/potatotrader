@@ -77,6 +77,15 @@ cancelAllOrders p = do
 
 -- | check for arbitrage opportunities and submits orders if profitable
 -- returns orders submitted
+--
+-- arbitrage terminology
+-- * b_tiek - balance in ti tokens on ek
+-- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek
+--  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1
+--  N.B that t1t2ek and t2t1ek are usually different
+-- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
+--  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
+--
 doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs (ExchangePairT e1 e2 m)) =>
   Proxy (t1, t2, e1, e2)
   -> ExchangePairT e1 e2 m ()
@@ -124,56 +133,6 @@ doArbitrage _ = do
     sellt1_e2 = sellt1 exchRate2
     buyt1_e2 = buyt1 exchRate2
 
-    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
-    --in this case, we are selling t1 on e1
-    t1t2e1 in_t1e1 = in_t1e1 / sellt1_e1 in_t1e1
-
-    --t2:t1 exchange ratio for input amount t1e1_in on exchange e1
-    -- in this case, we are buying t1 on e1
-    t2t1e1 in_t2e1 = buyt1_e1 in_t2e1 / in_t2e1
-
-    --t1:t2 exchange ratio for input amount in_t1e2 on exchange e2
-    --in this case, we are selling t1 on e1
-    t1t2e2 in_t1e2 = in_t1e2 / sellt1_e2 in_t1e2
-
-    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
-    -- in this case, we are buying t1 on e2
-    t2t1e2 in_t2e2 = buyt1_e2 in_t2e2 / in_t2e2
-
-
-
-
-  -- do basic check of exchange rate direction
-  -- note we assume `t1t2e1 x > t1t2e2 x` for all `x > 0`
-
-  {-
-
-  -- terminology
-  -- * b_tiek - balance in ti tokens on ek
-  -- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek
-  --  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1
-  --  N.B that t1t2ek and t2t1ek are usually different
-  -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
-  --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
-
-
-
-
-
-  -- TODO abstract this in t1 t2 e1 e2 and use in commented line of code above
-  -- TODO add tx fees...
-
-
-    -- profit of t1 on exchange e2 after successful arbitrage
-    profit_t1e2 in_t1e1 = 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1))
-
-    -- TODO maximize profit heuristically
-
-    -- TODO execute the trades if profit exceeds threshold
-    -- add all trades to a list
-
-  -- TODO sleep based on rate limit for api calls
-  -}
 
   return ()
 
@@ -183,7 +142,7 @@ doArbitrage _ = do
 -- |
 -- DELETE
 profit ::
-  (Token t1, Token t2, Exhange e1, Exchange e2)
+  forall t1 t2 e1 e2. (Token t1, Token t2, Exchange e1, Exchange e2)
   => (Amount t1, Amount t2) -- ^ e1 balances
   -> (Amount t1, Amount t2) -- ^ e2 balances
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
@@ -192,56 +151,40 @@ profit ::
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
   -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means on e1 and Right means on e2)
 profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
-    {-
-    -- construct t1t2e1 t2t1e1 t1t2e2 t2t1e2
-    --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
-    --in this case, we are selling t1 on e1
-    t1t2e1 in_t1e1 = fromIntegral in_t1e1 / fromIntegral (sellt1_e1 in_t1e1)
-    --t2:t1 exchange ratio for input amount t1e1_in on exchange e1
-    -- in this case, we are buying t1 on e1
-    t2t1e1 in_t2e1 = fromIntegral (buyt1_e1 in_t2e1) / fromIntegral in_t2e1
-    --t1:t2 exchange ratio for input amount in_t1e2 on exchange e2
-    --in this case, we are selling t1 on e1
-    t1t2e2 in_t1e2 = fromIntegral in_t1e2 / fromIntegral (sellt1_e2 in_t1e2)
-    --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
-    -- in this case, we are buying t1 on e2
-    t2t1e2 in_t2e2 = fromIntegral (buyt1_e2 in_t2e2) / fromIntegral in_t2e2
-    -}
 
+    -- construct profit functions
     profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1
-    profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
+    --profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
 
     profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2
-    profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
-
-
-    -- TODO figure out what this means and add a comment
-    -- TODO this in incorrect, it's exchange specific
-    --fi = fromIntegral
-    --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
+    --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
 
     -- always profit on t1 for now
-    do_t1 = True
     res = [50,10,10,10]
+    pt1e1 = searchMax res (0,b_t1e2) profit_t1e1
+    pt1e2 = searchMax res (0,b_t1e1) profit_t1e2
+    r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
 
-    r = if do_t1 then r where
-      pt1e1 = searchMax res (0,b_t1e2) profit_t1e1
-      pt1e2 = searchMax res (0,b_t1e1) profit_t1e2
-      r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
-    else r where
-      pt2e1 = searchMax res (0,b_t2e2) profit_t2e1
-      pt2e2 = searchMax res (0,b_t2e1) profit_t2e2
-      r = if pt2e1 > pt2e2 then Left pt2e1 else Right pt2e2
+    --
+
+    --this in incorrect, it's exchange specific
+    --fi = fromIntegral
+    --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
+    --arbitrage to profit in t2
+    --pt2e1 = searchMax res (0,b_t2e2) profit_t2e1
+    --pt2e2 = searchMax res (0,b_t2e1) profit_t2e2
+    --if pt2e1 > pt2e2 then Left pt2e1 else Right pt2e2
 
 -- |
+-- profit in ti tokens on exchange ek (after arbitrage ti->tj on el and tj->ti on ek)
 profit_tiek ::
   (Token ti, Token tj, Exchange ek, Exchange el)
   => Proxy (ti, tj, el, ek) -- ^ proxy to help make function name "type bindings" explicit
-  -> (Amount ti -> Double) -- ^ sellti_el
-  -> (Amount tj -> Double) -- ^ buyti_ek
+  -> (Amount ti -> Amount tj) -- ^ sellti_el
+  -> (Amount tj -> Amount ti) -- ^ buyti_ek
   -> Amount ti -- ^ ti tokens to sell on el
   -> Amount ti -- ^ profit in ti on ek
-profit_tiek sellti_el buyti_ek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
+profit_tiek _ sellti_el buyti_ek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
   --ti:tj exchange ratio for input amount in_tiel on exchange el
   --in this case, we are selling ti on el
   titjel in_tiel' = fromIntegral in_tiel' / fromIntegral (sellti_el in_tiel')
