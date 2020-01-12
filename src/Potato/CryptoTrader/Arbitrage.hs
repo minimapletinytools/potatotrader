@@ -170,8 +170,8 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
 
     -- always profit on t1 for now
     res = [50,10,10,10]
-    pt1e1 = searchMax res (0,b_t1e2) profit_t1e1
-    pt1e2 = searchMax res (0,b_t1e1) profit_t1e2
+    pt1e1 = searchMax res (0,b_t1e1) profit_t1e1
+    pt1e2 = searchMax res (0,b_t1e2) profit_t1e2
     r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
 
     -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
