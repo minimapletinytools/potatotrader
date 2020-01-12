@@ -158,13 +158,7 @@ doArbitrage _ = do
 
 
 
-  -- TODO something like this
-  --if t1t2e1 > t1t2e2 then
-      profit_t2e2 or profit_t1e1
-    else
-      profit_t1e2 or profit_t2e1
 
-  --  if t1e1/t1e2 > t2e1/t2e2 then profit_t1e2 else profit_t2e1
 
   -- TODO abstract this in t1 t2 e1 e2 and use in commented line of code above
   -- TODO add tx fees...
@@ -196,8 +190,9 @@ profit ::
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e1
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e2
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  ->
-profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = undefined where
+  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means on e1 and Right means on e2)
+profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
+    {-
     -- construct t1t2e1 t2t1e1 t1t2e2 t2t1e2
     --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
     --in this case, we are selling t1 on e1
@@ -211,23 +206,48 @@ profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 =
     --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
     -- in this case, we are buying t1 on e2
     t2t1e2 in_t2e2 = fromIntegral (buyt1_e2 in_t2e2) / fromIntegral in_t2e2
+    -}
 
-    profit_t1ek
+    profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1
+    profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
+
+    profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2
+    profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
+
+
+    -- TODO figure out what this means and add a comment
+    -- TODO this in incorrect, it's exchange specific
+    --fi = fromIntegral
+    --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
+
+    -- always profit on t1 for now
+    do_t1 = True
+    res = [50,10,10,10]
+
+    r = if do_t1 then r where
+      pt1e1 = searchMax res (0,b_t1e2) profit_t1e1
+      pt1e2 = searchMax res (0,b_t1e1) profit_t1e2
+      r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
+    else r where
+      pt2e1 = searchMax res (0,b_t2e2) profit_t2e1
+      pt2e2 = searchMax res (0,b_t2e1) profit_t2e2
+      r = if pt2e1 > pt2e2 then Left pt2e1 else Right pt2e2
 
 -- |
-profit_t1e2 ::
-  (Token t1, Token t2) =>
-  Amount t1 -- ^ t1 tokens to sell on e1
-  -> (Amount t1 -> Double) -- ^ sellt1_e1
-  -> (Amount t2 -> Double) -- ^ buyt1_ek
-  -> Amount t1 -- ^ profit in t1 on ek
-profit_t1e2 in_t1e1 sellt1_e1 buyt1_e2 = Amount . floor $ 1/(t1t2e1 in_t1e1 * t2t1e2 (sellt1_e1 in_t1e1)) where
-  --t1:t2 exchange ratio for input amount in_t1e1 on exchange e1
-  --in this case, we are selling t1 on e1
-  t1t2e1 in_t1e1' = fromIntegral in_t1e1' / fromIntegral (sellt1_e1 in_t1e1')
-  --t2:t1 exchange ratio for input amount t1e2_in on exchange e2
-  -- in this case, we are buying t1 on e2
-  t2t1e2 in_t2e2' = fromIntegral (buyt1_e2 in_t2e2') / fromIntegral in_t2e2'
+profit_tiek ::
+  (Token ti, Token tj, Exchange ek, Exchange el)
+  => Proxy (ti, tj, el, ek) -- ^ proxy to help make function name "type bindings" explicit
+  -> (Amount ti -> Double) -- ^ sellti_el
+  -> (Amount tj -> Double) -- ^ buyti_ek
+  -> Amount ti -- ^ ti tokens to sell on el
+  -> Amount ti -- ^ profit in ti on ek
+profit_tiek sellti_el buyti_ek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
+  --ti:tj exchange ratio for input amount in_tiel on exchange el
+  --in this case, we are selling ti on el
+  titjel in_tiel' = fromIntegral in_tiel' / fromIntegral (sellti_el in_tiel')
+  --tj:ti exchange ratio for input amount tiek_in on exchange ek
+  -- in this case, we are buying ti on ek
+  tjtiek in_tjek' = fromIntegral (buyti_ek in_tjek') / fromIntegral in_tjek'
 
 -- TODO improve this to search multiple possible local maxima
 searchMax :: (Show a, Show b,  NFData b, Integral a, Ord b) =>
@@ -252,32 +272,13 @@ searchMax (n':ns) (mn,mx) f = r where
   r = if step == 1 then maxp else searchMax ns (back, front) f
 
 
--- | runs profit_t1e2
-maximize_profit_t1e2 ::
-  (Token t1, Token t2) =>
-  Amount t1 -- ^ t1 balance on e1
-  -> Amount t2 -- ^ t2 balance on e2
-  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
-  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> (Amount t1, Amount t2) -- ^ amount t1 to sell on e1 and amount t2 to sell on e2
-maximize_profit_t1e2 b_t1e1 b_t2e2 sellt1_e1 buyt1_e2 = undefined
-
-
-
-
-
-
-
-
-
-
--- | runs profit_t1e2 or profit_t2e1
-{-profitMix ::
-  (Token t1, Token t2, Exchange e1, Exchange e2) =>
-  (Amount t1, Amount t2) -- ^ exchange 1 balance
-  -> (Amount t1, Amount t2) -- ^ exchange 2 balance
-  -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
-  -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> (Amount t1, Amount t2) -- ^ amount t1 to sell on e1 and amount t2 to sell on e2
-profitMix (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e2 =
--}
+-- | runs profit_tiek
+maximize_profit_tiek ::
+  (Token ti, Token tj, Exchange el, Exchange ek)
+  => Proxy (ti, tj, el, ek) -- ^ proxy to help make function name "type bindings" explicit
+  -> Amount ti -- ^ ti balance on el
+  -> Amount tj -- ^ tj balance on ek
+  -> (Amount ti -> Amount tj) -- ^ sellti_el
+  -> (Amount tj -> Amount ti) -- ^ buyti_ek
+  -> (Amount ti, Amount tj) -- ^ amount ti to sell on el and amount tj to sell on ek
+maximize_profit_tiek b_tiel b_tjek sellti_el buyti_ek = undefined
