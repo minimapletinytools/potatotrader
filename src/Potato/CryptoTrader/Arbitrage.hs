@@ -11,7 +11,8 @@ module Potato.CryptoTrader.Arbitrage (
   ArbitrageConstraints,
   doArbitrage,
 
-  searchMax -- just for testing
+  -- exported for testing
+  searchMax
 ) where
 
 import           Control.Monad
@@ -125,14 +126,24 @@ doArbitrage _ = do
     Left (SomeException e) -> undefined
     Right r                -> return r
 
-
   let
-  -- construct t1t2e1 t2t1e1 t1t2e2 t2t1e2
     sellt1_e1 = sellt1 exchRate1
     buyt1_e1 = buyt1 exchRate1
     sellt1_e2 = sellt1 exchRate2
     buyt1_e2 = buyt1 exchRate2
 
+  case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
+    Left in_t1e1 -> do
+      let
+        out_t2e1 = sellt1_e1 in_t1e1
+        in_t2e2 = out_t2e1
+        out_t1e2 = buyt1_e2 in_t2e2
+      -- sell t1 on e1
+      lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Sell in_t1e1 out_t2e1
+      -- buy t1 on e2
+      lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
+    Right in_t1e2 ->
+      undefined
 
   return ()
 
@@ -140,24 +151,21 @@ doArbitrage _ = do
 
 
 -- |
--- DELETE
-profit ::
+profit_t1 ::
   forall t1 t2 e1 e2. (Token t1, Token t2, Exchange e1, Exchange e2)
-  => (Amount t1, Amount t2) -- ^ e1 balances
+  => Proxy (t1,t2,e1,e2) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
+  -> (Amount t1, Amount t2) -- ^ e1 balances
   -> (Amount t1, Amount t2) -- ^ e2 balances
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e1
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e1
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e2
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means on e1 and Right means on e2)
-profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
+  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 or t2 to arbitrage (Left means on e1 and Right means on e2)
+profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
 
     -- construct profit functions
-    profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1
-    --profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
-
-    profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2
-    --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
+    profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1 b_t2e1
+    profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2 b_t2e2
 
     -- always profit on t1 for now
     res = [50,10,10,10]
@@ -165,8 +173,9 @@ profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 =
     pt1e2 = searchMax res (0,b_t1e1) profit_t1e2
     r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
 
-    --
-
+    -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
+    --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
+    --profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
     --this in incorrect, it's exchange specific
     --fi = fromIntegral
     --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
@@ -179,22 +188,25 @@ profit (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 =
 -- profit in ti tokens on exchange ek (after arbitrage ti->tj on el and tj->ti on ek)
 profit_tiek ::
   (Token ti, Token tj, Exchange ek, Exchange el)
-  => Proxy (ti, tj, el, ek) -- ^ proxy to help make function name "type bindings" explicit
+  => Proxy (ti, tj, el, ek) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
   -> (Amount ti -> Amount tj) -- ^ sellti_el
   -> (Amount tj -> Amount ti) -- ^ buyti_ek
+  -> Amount tj -- ^ amount of tj tokens we have to spend on ek
   -> Amount ti -- ^ ti tokens to sell on el
   -> Amount ti -- ^ profit in ti on ek
-profit_tiek _ sellti_el buyti_ek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
+profit_tiek _ sellti_el buyti_ek max_in_tjek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
   --ti:tj exchange ratio for input amount in_tiel on exchange el
   --in this case, we are selling ti on el
   titjel in_tiel' = fromIntegral in_tiel' / fromIntegral (sellti_el in_tiel')
   --tj:ti exchange ratio for input amount tiek_in on exchange ek
   -- in this case, we are buying ti on ek
-  tjtiek in_tjek' = fromIntegral (buyti_ek in_tjek') / fromIntegral in_tjek'
+  -- note that the denominator becomse constant if in_tjek' exceeds max amount of tj on ek (max_in_tjek)
+  tjtiek in_tjek' = fromIntegral (buyti_ek in_tjek') / max (fromIntegral in_tjek') (fromIntegral max_in_tjek)
 
 -- TODO improve this to search multiple possible local maxima
+-- | find the maximum of a function numerically
 searchMax :: (Show a, Show b,  NFData b, Integral a, Ord b) =>
-  [Int] -- ^ search resolution
+  [Int] -- ^ search resolution for each iteration
   -> (a,a) -- ^ search domain
   ->  (a->b) -- ^ function to search
   -> a -- ^ max value
@@ -214,7 +226,7 @@ searchMax (n':ns) (mn,mx) f = r where
   front = min mx (maxp+step)
   r = if step == 1 then maxp else searchMax ns (back, front) f
 
-
+-- DELETE
 -- | runs profit_tiek
 maximize_profit_tiek ::
   (Token ti, Token tj, Exchange el, Exchange ek)
