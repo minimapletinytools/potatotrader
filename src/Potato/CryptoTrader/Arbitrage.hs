@@ -116,6 +116,8 @@ doArbitrage _ = do
     Left (SomeException e) -> return (0,0,0,0)
     Right r                -> return r
 
+  trace ("BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)) $ return ()
+
   -- query exchange rate
   erresult <- try $ do
     exchRate1 <- lifte1 $ getExchangeRate (Proxy :: Proxy (t1,t2,e1))
@@ -142,9 +144,17 @@ doArbitrage _ = do
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Sell in_t1e1 out_t2e1
       -- buy t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
-      trace (show (in_t1e1, out_t2e1, out_t1e2)) $ return ()
-    Right in_t1e2 ->
-      trace "other way" $ undefined
+      trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
+    Right in_t1e2 -> do
+      let
+        out_t2e2 = sellt1_e2 in_t1e2
+        in_t2e1 = out_t2e2
+        out_t1e1 = buyt1_e1 in_t2e1
+      -- sell t1 on e2
+      --lifte1 $ order (Proxy :: Proxy (t1,t2,e2)) Sell in_t1e2 out_t2e2
+      -- buy t1 on e1
+      --lifte2 $ order (Proxy :: Proxy (t1,t2,e1)) Buy out_t1e1 in_t2e1
+      trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
 
   return ()
 
@@ -161,18 +171,22 @@ profit_t1 ::
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e1
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e2
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 or t2 to arbitrage (Left means on e1 and Right means on e2)
+  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means profit_t1e1 in_t1e2 and Right means on profit_t1e2 in_t1e1)
 profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
 
     -- construct profit functions
     profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1 b_t2e1
     profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2 b_t2e2
 
+
     -- always profit on t1 for now
-    res = [50,10,10,10]
-    pt1e1 = searchMax res (0,b_t1e1) profit_t1e1
-    pt1e2 = searchMax res (0,b_t1e2) profit_t1e2
-    r = if pt1e1 > pt1e2 then Left pt1e1 else Right pt1e2
+    --res = trace (show $ map show [profit_t1e2 (Amount (floor (x/10.0 * fromIntegral b_t1e1))) | x <- [1.0..10.0::Double]]) $ [100,50,10,10]
+    --res = [100,50,10,10]
+    res = []
+    (in_t1e2, out_t1e1) = searchMax res (0,b_t1e1) profit_t1e1
+    (in_t1e1, out_t1e2) = searchMax res (0,b_t1e2) profit_t1e2
+    r = trace (show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
+      if (out_t1e1-in_t1e2) > (out_t1e2-in_t1e1) then Left in_t1e2 else Right in_t1e1
 
     -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
     --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
@@ -195,14 +209,18 @@ profit_tiek ::
   -> Amount tj -- ^ amount of tj tokens we have to spend on ek
   -> Amount ti -- ^ ti tokens to sell on el
   -> Amount ti -- ^ profit in ti on ek
-profit_tiek _ sellti_el buyti_ek max_in_tjek in_tiel = Amount . floor $ 1/(titjel in_tiel * tjtiek (sellti_el in_tiel)) where
+profit_tiek _ sellti_el buyti_ek max_in_tjek in_tiel = final where
   --ti:tj exchange ratio for input amount in_tiel on exchange el
   --in this case, we are selling ti on el
-  titjel in_tiel' = fromIntegral in_tiel' / fromIntegral (sellti_el in_tiel')
+  titjel in_tiel' = makeRatio in_tiel' (sellti_el in_tiel')
   --tj:ti exchange ratio for input amount tiek_in on exchange ek
   -- in this case, we are buying ti on ek
-  -- note that the denominator becomse constant if in_tjek' exceeds max amount of tj on ek (max_in_tjek)
-  tjtiek in_tjek' = fromIntegral (buyti_ek in_tjek') / max (fromIntegral in_tjek') (fromIntegral max_in_tjek)
+  -- note that the denominator becomes constant if in_tjek' exceeds max amount of tj on ek (max_in_tjek)
+  tjtiek in_tjek' = makeRatio (buyti_ek in_tjek') (max (fromIntegral in_tjek') (fromIntegral max_in_tjek))
+  AmountRatio denom = titjel in_tiel * tjtiek (sellti_el in_tiel)
+  Amount num = in_tiel
+  final = Amount . floor $ (fromIntegral num) / denom
+  --r = trace (show $ (titjel in_tiel, sellti_el in_tiel, tjtiek (sellti_el in_tiel))) $ final
 
 -- TODO improve this to search multiple possible local maxima
 -- | find the maximum of a function numerically
@@ -210,8 +228,8 @@ searchMax :: (Show a, Show b,  NFData b, Integral a, Ord b) =>
   [Int] -- ^ search resolution for each iteration
   -> (a,a) -- ^ search domain
   ->  (a->b) -- ^ function to search
-  -> a -- ^ max value
-searchMax [] (mn,mx) f = if f mn > f mx then mn else mx
+  -> (a,b) -- ^ max value pair of the function we searched
+searchMax [] (mn,mx) f = if f mn > f mx then (mn, f mn) else (mx, f mx)
 searchMax (n':ns) (mn,mx) f = r where
   -- first split the domain including boundary points
   step' = (mx-mn) `div` fromIntegral n'
@@ -225,7 +243,7 @@ searchMax (n':ns) (mn,mx) f = r where
   -- construct the new search domain and recurse
   back = max mn (maxp-step)
   front = min mx (maxp+step)
-  r = if step == 1 then maxp else searchMax ns (back, front) f
+  r = if step == 1 then (maxp, f maxp) else searchMax ns (back, front) f
 
 -- DELETE
 -- | runs profit_tiek

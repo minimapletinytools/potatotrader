@@ -22,14 +22,16 @@ import           Test.Hspec.Contrib.HUnit                      (fromHUnitTest)
 import           Test.HUnit
 
 
+type E1 = (OnChain ThunderCoreMain)
+type E2 = Bilaxy
 
-type ArbMonad = ExchangePairT (OnChain ThunderCoreMain) Bilaxy (WriterT ArbitrageLogs IO)
-testArbitrage :: forall t1 t2 e1 e2. (ArbitrageConstraints TT USDT (OnChain ThunderCoreMain) Bilaxy ArbMonad) =>
+type ArbMonad = ExchangePairT E1 E2 (WriterT ArbitrageLogs IO)
+testArbitrage :: (ArbitrageConstraints TT USDT E1 E2 ArbMonad) =>
   Test
 testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),()))
-    arb = doArbitrage (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain, Bilaxy))
+    arb = doArbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
   rslt <- runWriterT $ flip runReaderT ctx $ arb
   print rslt -- force rslt
   return ()
@@ -43,9 +45,9 @@ test_searchMax = do
     f1_1 x = x
     f1_2 x = if x < 50 then x else 100-x
   it "returns right most value for f x = x" $
-    f1_1 (searchMax res1 range1 f1_1) `shouldBe` (100 :: Int)
+    (searchMax res1 range1 f1_1) `shouldBe` (100 :: Int, 100)
   it "returns correct max value for ^ looking function" $
-    f1_2 (searchMax res1 range1 f1_2) `shouldBe` (50 :: Int)
+    (searchMax res1 range1 f1_2) `shouldBe` (50 :: Int, 50)
 
 
 tests :: IO ()

@@ -8,11 +8,17 @@
 
 module Potato.CryptoTrader.Types (
   Amount(..),
+  AmountRatio(..),
+  makeRatio,
+  ($:$*),
+  (*$:$),
+  (/$:$),
   Liquidity(..),
   OrderType(..),
   ExchangeRate(..),
 
   Token(..),
+  toStdDenom,
   fromStdDenom,
   ExchangeCtx(..),
   MonadExchange,
@@ -41,6 +47,26 @@ import           GHC.Generics
 -- | type safe representation of a currency amount in its base (smallest) denomination
 newtype Amount t = Amount Integer
   deriving (Eq, Ord, Show, Read, Enum, Num, Integral, Real, Generic, NFData)
+
+-- | type safe representation of a currency exchange ratio t1:t2 in its base (smallest) denomination
+newtype AmountRatio t1 t2 = AmountRatio Double
+  deriving (Eq, Ord, Show, Read, Enum, Num, Real, Fractional, RealFrac, Generic, NFData)
+
+makeRatio :: Amount t1 -> Amount t2 -> AmountRatio t1 t2
+makeRatio t1 t2 = fromIntegral t1 / fromIntegral t2
+
+
+($:$*) :: AmountRatio t1 t2 -> Amount t2 -> Amount t1
+($:$*) t1_over_t2 t1 = Amount $ floor . (t1_over_t2 *) . fromIntegral $ t1
+infixl 7 $:$*
+
+(*$:$) :: Amount t2 -> AmountRatio t1 t2 -> Amount t1
+(*$:$) = flip ($:$*)
+infixl 7 *$:$
+
+(/$:$) :: Amount t1 -> AmountRatio t1 t2 -> Amount t2
+(/$:$) t1 t1_over_t2 = Amount $ floor $ fromIntegral t1 / t1_over_t2
+infixl 7 /$:$
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 
@@ -89,9 +115,12 @@ class Token t where
   tokenName :: Proxy t -> String
   decimals :: Proxy t -> Integer
 
+toStdDenom :: forall t. (Token t) => Amount t -> Double
+toStdDenom (Amount t) = fromIntegral t / fromIntegral (decimals (Proxy :: Proxy t))
+
 -- | converts currency from standard demonation to base demonation
-fromStdDenom :: forall t. (Token t) => Integer -> Amount t
-fromStdDenom x = Amount (x * decimals (Proxy :: Proxy t))
+fromStdDenom :: forall t. (Token t) => Double -> Amount t
+fromStdDenom = Amount . floor . (* fromInteger (decimals (Proxy :: Proxy t)))
 
 -- | A class for exchanges
 class Exchange e where
