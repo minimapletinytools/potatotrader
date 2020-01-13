@@ -55,7 +55,6 @@ newtype AmountRatio t1 t2 = AmountRatio Double
 makeRatio :: Amount t1 -> Amount t2 -> AmountRatio t1 t2
 makeRatio t1 t2 = fromIntegral t1 / fromIntegral t2
 
-
 ($:$*) :: AmountRatio t1 t2 -> Amount t2 -> Amount t1
 ($:$*) t1_over_t2 t1 = Amount $ floor . (t1_over_t2 *) . fromIntegral $ t1
 infixl 7 $:$*

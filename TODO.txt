@@ -4,7 +4,9 @@
 -add test cases for all the chain query stuff D:
   -merge testfixture branch
 
+
 ::TODO::
+-fix decimal conversion in bilaxy exchange when posting orders
 -test flipExchange
 DONE-reorg to give everything a package name
 DONE-Potato.Trading

@@ -24,6 +24,7 @@ import           Control.Parallel.Strategies
 import           Data.Proxy
 import           Data.Semigroup
 import qualified Data.Text                   as T
+import           Potato.CryptoTrader.Helpers
 import           Potato.CryptoTrader.Types
 
 import           Debug.Trace
@@ -66,14 +67,6 @@ lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
 -- this matches the type `ExchangeT e2 m a -> ExchangePairT e1 e2 m a`
 lifte2 :: ReaderT r m a -> ReaderT (b, r) m a
 lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
-
-
--- TODO move to a different file
--- | cancels all unexecuted or partially executed orders
-cancelAllOrders :: (ExchangePair t1 t2 e, MonadExchange m) => Proxy (t1, t2, e) -> ExchangeT e m ()
-cancelAllOrders p = do
-  orders <- getOrders p
-  mapM_ (cancel p) orders
 
 -- | check for arbitrage opportunities and submits orders if profitable
 -- returns orders submitted
@@ -173,32 +166,32 @@ profit_t1 ::
   -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means profit_t1e1 in_t1e2 and Right means on profit_t1e2 in_t1e1)
 profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
 
-    -- construct profit functions
-    profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1 b_t2e1
-    profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2 b_t2e2
+  -- construct profit functions
+  profit_t1e1 = profit_tiek (Proxy :: Proxy (t1,t2,e1,e2)) sellt1_e2 buyt1_e1 b_t2e1
+  profit_t1e2 = profit_tiek (Proxy :: Proxy (t1,t2,e2,e1)) sellt1_e1 buyt1_e2 b_t2e2
 
 
-    -- always profit on t1 for now
-    --domain = [Amount (floor (x/10.0 * fromIntegral b_t1e1)) | x <- [1.0..10.0::Double]]
-    --pairs = zip (map toStdDenom domain) (map (toStdDenom . profit_t1e2) domain)
-    --res = trace (show pairs) $ [100,50,10,10]
-    res = [100,50,10,10]
-    --res = []
-    (in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
-    (in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
-    r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
-      if out_t1e1 > out_t1e2 then Left in_t1e2 else Right in_t1e1
+  -- always profit on t1 for now
+  --domain = [Amount (floor (x/10.0 * fromIntegral b_t1e1)) | x <- [1.0..10.0::Double]]
+  --pairs = zip (map toStdDenom domain) (map (toStdDenom . profit_t1e2) domain)
+  --res = trace (show pairs) $ [100,50,10,10]
+  res = [100,50,10,10]
+  --res = []
+  (in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
+  (in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
+  r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
+    if out_t1e1 > out_t1e2 then Left in_t1e2 else Right in_t1e1
 
-    -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
-    --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
-    --profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
-    --this in incorrect, it's exchange specific
-    --fi = fromIntegral
-    --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
-    --arbitrage to profit in t2
-    --pt2e1 = searchMax res (0,b_t2e2) profit_t2e1
-    --pt2e2 = searchMax res (0,b_t2e1) profit_t2e2
-    --if pt2e1 > pt2e2 then Left pt2e1 else Right pt2e2
+  -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
+  --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
+  --profit_t2e1 = profit_tiek (Proxy :: Proxy (t2,t1,e1,e2)) buyt1_e2 sellt1_e1
+  --this in incorrect, it's exchange specific
+  --fi = fromIntegral
+  --do_t1 = fi b_t1e1 / fi b_t1e2 > fi b_t2e1 / fi b_t2e2
+  --arbitrage to profit in t2
+  --pt2e1 = searchMax res (0,b_t2e2) profit_t2e1
+  --pt2e2 = searchMax res (0,b_t2e1) profit_t2e2
+  --if pt2e1 > pt2e2 then Left pt2e1 else Right pt2e2
 
 -- |
 -- profit in ti tokens on exchange ek (after arbitrage ti->tj on el and tj->ti on ek)

@@ -7,11 +7,7 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
   BilaxyCache,
   BilaxyAccount,
   BilaxyCtx,
-  BilaxyOrderDetails(..),
-
-  -- exported for testing
-  make_sellt1,
-  make_buyt1
+  BilaxyOrderDetails(..)
 ) where
 
 import           Control.Exception
@@ -20,6 +16,7 @@ import           Data.List                                  (mapAccumL)
 import           Data.Proxy
 import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
 import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Helpers
 import           Potato.CryptoTrader.Types
 
 import           Debug.Trace
@@ -63,43 +60,6 @@ instance ExchangeToken USDT Bilaxy where
 data BilaxyOrderDetails = BilaxyOrderDetails {
   orderId :: Int
 } deriving (Show)
-
--- | ExchangePair helper methods for generating ExchangeRate functions
--- exported for testing purposes
-
--- | takes a list of market order bids for t1 (in base denomination)
--- (people trying to buy t1 using t2)
--- and creates the sellt1 function that shows how much t2 can be obtained from selling a given quantity t1
-make_sellt1 ::
-  [(AmountRatio t2 t1, Amount t1)] -- ^ list of market asks
-  -> Amount t1 -- ^ amount of t1 to be sold
-  -> Amount t2 -- ^ amount of t2 bought
-make_sellt1 bids t1 = r where
-  myFunc :: Amount t1 -> (AmountRatio t2 t1, Amount t1) -> (Amount t1, Amount t2)
-  myFunc remainingt1 (price, volume) = (remainingt1-paidt1, boughtt2) where
-    boughtt2 = min (remainingt1 *$:$ price) (volume *$:$ price)
-    paidt1 = boughtt2 /$:$ price
-  (remaining, boughtt2Array) = mapAccumL myFunc t1 bids
-  -- TODO log a warning if remaining > 0 (means we bought the whole market and had some left over)
-  boughtt2Executed = takeWhile (> 0) boughtt2Array
-  r = sum boughtt2Executed
-
--- | takes a list of market order asks for t1 (in base denomination)
--- (people trying to sell t2 for t1)
--- and creates the buyt1 function that shows how much t1 can be bought for a given quantity of t2
-make_buyt1 :: forall t1 t2. (Token t1, Token t2) =>
-  [(AmountRatio t2 t1, Amount t1)] -- ^ list of market bids
-  -> Amount t2 -- ^ amount of t2 to be sold
-  -> Amount t1 -- ^ amount of t1 bought
-make_buyt1 bids t2 = r where
-  myFunc :: Amount t2 -> (AmountRatio t2 t1, Amount t1) -> (Amount t2, Amount t1)
-  myFunc remainingt2 (price, volume) = (remainingt2-paidt2, boughtt1) where
-    boughtt1 = min (remainingt2 /$:$ price) volume
-    paidt2 = boughtt1 *$:$ price
-  (remaining, boughtt1Array) = mapAccumL myFunc t2 bids
-  -- TODO log a warning if remaining > 0 (means we bought the whole market and had some left over)
-  boughtt1Executed = takeWhile (> 0) boughtt1Array
-  r = sum boughtt1Executed
 
 type BilaxyExchangePairConstraints t1 t2 = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
@@ -151,13 +111,15 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       t1d = fromInteger $ decimals (Proxy :: Proxy t1)
       t2d = fromInteger $ decimals (Proxy :: Proxy t2)
       fixDecimals = map (\(BA.MarketOrder p v _) -> (AmountRatio $ p*t2d/t1d, Amount . floor $ v*t1d :: Amount t1))
+      -- asks are people trying to sell t1 for t2
+      -- bids are people trying to buy t1 with t2
       -- price is always in t2, volume in t1
       -- in this case t1 is the token being traded, and t2 is the base token
       -- TODO/NOTE I'm unsure if this interpretation is consistent accross all trading pairs. I only checked for TT/USDT
-      -- asks are people trying to sell t1 for t2
       asks = fixDecimals $ BA.asks depth
-      -- bids are people trying to buy t1 with t2
       bids = fixDecimals $ BA.bids depth
+      sellt1 = make_sellt1_from_bidst1 bids
+      buyt1 = make_buyt1_from_askst1 asks
       variance = undefined
     --trace (show $ take 5 bids) $ return ()
-    return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
+    return $ ExchangeRate sellt1 buyt1 variance
