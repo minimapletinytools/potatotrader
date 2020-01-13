@@ -81,5 +81,5 @@ tests = hspec $
       fromHUnitTest test_getOrderInfo
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
-    describe "order_cancel" $
-      fromHUnitTest test_order_cancel
+    --describe "order_cancel" $
+    --  fromHUnitTest test_order_cancel

@@ -61,7 +61,28 @@ data BilaxyOrderDetails = BilaxyOrderDetails {
   orderId :: Int
 } deriving (Show)
 
+
 type BilaxyExchangePairConstraints t1 t2 = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
+
+getDepthHelper ::
+  forall t1 t2 m. (BilaxyExchangePairConstraints t1 t2, MonadExchange m)
+  => Proxy (t1, t2, Bilaxy)
+  -> m ([(AmountRatio t2 t1, Amount t1)],[(AmountRatio t2 t1, Amount t1)]) -- ^ (asks, bids)
+getDepthHelper pproxy = do
+  depth <- liftIO $ getDepth (pairId pproxy)
+  let
+    t1d = fromInteger $ decimals (Proxy :: Proxy t1)
+    t2d = fromInteger $ decimals (Proxy :: Proxy t2)
+    fixDecimals = map (\(BA.MarketOrder p v _) -> (AmountRatio $ p*t2d/t1d, Amount . floor $ v*t1d :: Amount t1))
+    -- asks are people trying to sell t1 for t2
+    -- bids are people trying to buy t1 with t2
+    -- price is always in t2, volume in t1
+    -- in this case t1 is the token being traded, and t2 is the base token
+    -- TODO/NOTE I'm unsure if this interpretation is consistent accross all trading pairs. I only checked for TT/USDT
+    asks = fixDecimals $ BA.asks depth
+    bids = fixDecimals $ BA.bids depth
+  return (asks, bids)
+
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
@@ -86,17 +107,19 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
     return $ map (BilaxyOrderDetails . BA.oi_id) orders
 
-  order _ ot (Amount t1) (Amount t2) = do
+  order pproxy ot (Amount t1) (Amount t2) = do
+    er <- getExchangeRate pproxy
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
-      pproxy = Proxy :: Proxy (t1, t2, Bilaxy)
-      amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
-      amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
-      -- TODO price_t2 needs to be based on market depth...
-      price_t2 = amount_t2 / amount_t1
       pair = pairId pproxy
-    v <- liftIO $ try (postOrder pair amount_t1 price_t2 ot)
+      pvpairs = case ot of
+        -- buying t1 with t2
+        Buy  -> undefined
+        -- selling t1 for t2
+        Sell -> undefined
+    v <- undefined
+    --v <- liftIO $ try (postOrder pair amount_t1 price_t2 ot)
     case v of
       Left (SomeException e) -> do
         liftIO $ print e
@@ -104,22 +127,9 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       Right oid              -> return $ BilaxyOrderDetails oid
 
   getExchangeRate pproxy = do
+    (asks, bids) <- getDepthHelper pproxy
     let
-      pair = pairId pproxy
-    depth <- liftIO $ getDepth pair
-    let
-      t1d = fromInteger $ decimals (Proxy :: Proxy t1)
-      t2d = fromInteger $ decimals (Proxy :: Proxy t2)
-      fixDecimals = map (\(BA.MarketOrder p v _) -> (AmountRatio $ p*t2d/t1d, Amount . floor $ v*t1d :: Amount t1))
-      -- asks are people trying to sell t1 for t2
-      -- bids are people trying to buy t1 with t2
-      -- price is always in t2, volume in t1
-      -- in this case t1 is the token being traded, and t2 is the base token
-      -- TODO/NOTE I'm unsure if this interpretation is consistent accross all trading pairs. I only checked for TT/USDT
-      asks = fixDecimals $ BA.asks depth
-      bids = fixDecimals $ BA.bids depth
       sellt1 = make_sellt1_from_bidst1 bids
       buyt1 = make_buyt1_from_askst1 asks
       variance = undefined
-    --trace (show $ take 5 bids) $ return ()
     return $ ExchangeRate sellt1 buyt1 variance
