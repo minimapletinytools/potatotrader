@@ -81,9 +81,9 @@ cancelAllOrders p = do
 --
 -- arbitrage terminology
 -- * b_tiek - balance in ti tokens on ek
--- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek
---  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1
---  N.B that t1t2ek and t2t1ek are usually different
+-- * titjek in_tiek - exchange rate ti:tj on ek as a function of ti input tokens on ek (amount of tj obtained from selling ti for tj on ek)
+--  e.g. t1t2e1 in_t1e1 - exchange rate of t1:t2 on e1 as a function of t1 input tokens on e1 (amount of t2 obtained from selling t1 on e1)
+--  N.B that t1t2ek and t2t1ek are usually different due to market spread or whatever is going on in uniswap
 -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
 --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
 --
@@ -135,7 +135,17 @@ doArbitrage _ = do
     buyt1_e2 = buyt1 exchRate2
 
   case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
-    Left in_t1e1 -> do
+    Left in_t1e2 -> do
+      let
+        out_t2e2 = sellt1_e2 in_t1e2
+        in_t2e1 = out_t2e2
+        out_t1e1 = buyt1_e1 in_t2e1
+      -- buy t1 on e1
+      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Buy out_t1e1 in_t2e1
+      -- sell t1 on e2
+      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Sell in_t1e2 out_t2e2
+      trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
+    Right in_t1e1 -> do
       let
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
@@ -145,16 +155,6 @@ doArbitrage _ = do
       -- buy t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
       trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
-    Right in_t1e2 -> do
-      let
-        out_t2e2 = sellt1_e2 in_t1e2
-        in_t2e1 = out_t2e2
-        out_t1e1 = buyt1_e1 in_t2e1
-      -- sell t1 on e2
-      --lifte1 $ order (Proxy :: Proxy (t1,t2,e2)) Sell in_t1e2 out_t2e2
-      -- buy t1 on e1
-      --lifte2 $ order (Proxy :: Proxy (t1,t2,e1)) Buy out_t1e1 in_t2e1
-      trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
 
   return ()
 
@@ -180,13 +180,15 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
 
 
     -- always profit on t1 for now
-    --res = trace (show $ map show [profit_t1e2 (Amount (floor (x/10.0 * fromIntegral b_t1e1))) | x <- [1.0..10.0::Double]]) $ [100,50,10,10]
-    --res = [100,50,10,10]
-    res = []
-    (in_t1e2, out_t1e1) = searchMax res (0,b_t1e1) profit_t1e1
-    (in_t1e1, out_t1e2) = searchMax res (0,b_t1e2) profit_t1e2
-    r = trace (show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
-      if (out_t1e1-in_t1e2) > (out_t1e2-in_t1e1) then Left in_t1e2 else Right in_t1e1
+    --domain = [Amount (floor (x/10.0 * fromIntegral b_t1e1)) | x <- [1.0..10.0::Double]]
+    --pairs = zip (map toStdDenom domain) (map (toStdDenom . profit_t1e2) domain)
+    --res = trace (show pairs) $ [100,50,10,10]
+    res = [100,50,10,10]
+    --res = []
+    (in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
+    (in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
+    r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
+      if out_t1e1 > out_t1e2 then Left in_t1e2 else Right in_t1e1
 
     -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
     --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
@@ -202,7 +204,7 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
 -- |
 -- profit in ti tokens on exchange ek (after arbitrage ti->tj on el and tj->ti on ek)
 profit_tiek ::
-  (Token ti, Token tj, Exchange ek, Exchange el)
+  forall ti tj ek el. (Token ti, Token tj, Exchange ek, Exchange el)
   => Proxy (ti, tj, el, ek) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
   -> (Amount ti -> Amount tj) -- ^ sellti_el
   -> (Amount tj -> Amount ti) -- ^ buyti_ek
@@ -213,14 +215,10 @@ profit_tiek _ sellti_el buyti_ek max_in_tjek in_tiel = final where
   --ti:tj exchange ratio for input amount in_tiel on exchange el
   --in this case, we are selling ti on el
   titjel in_tiel' = makeRatio in_tiel' (sellti_el in_tiel')
-  --tj:ti exchange ratio for input amount tiek_in on exchange ek
+  --1/tj:ti exchange ratio for input amount tiek_in on exchange ek
   -- in this case, we are buying ti on ek
-  -- note that the denominator becomes constant if in_tjek' exceeds max amount of tj on ek (max_in_tjek)
-  tjtiek in_tjek' = makeRatio (buyti_ek in_tjek') (max (fromIntegral in_tjek') (fromIntegral max_in_tjek))
-  AmountRatio denom = titjel in_tiel * tjtiek (sellti_el in_tiel)
-  Amount num = in_tiel
-  final = Amount . floor $ (fromIntegral num) / denom
-  --r = trace (show $ (titjel in_tiel, sellti_el in_tiel, tjtiek (sellti_el in_tiel))) $ final
+  one_over_tjtiek in_tjek' = makeRatio (buyti_ek (min max_in_tjek in_tjek')) in_tjek'
+  final = in_tiel /$:$ titjel in_tiel *$:$ one_over_tjtiek (sellti_el in_tiel) - in_tiel
 
 -- TODO improve this to search multiple possible local maxima
 -- | find the maximum of a function numerically

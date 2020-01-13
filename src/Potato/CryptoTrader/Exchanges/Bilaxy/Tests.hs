@@ -69,12 +69,14 @@ test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
 
 
 
+-- bids are people trying to buy TT
 testBids :: [(AmountRatio USDT TT, Amount TT)]
 testBids =
   [ (AmountRatio 100, Amount 100)
   , (AmountRatio 90, Amount 200)
   , (AmountRatio 80, Amount 100)]
 
+-- asks are people trying to sell TT
 testAsks :: [(AmountRatio USDT TT, Amount TT)]
 testAsks =
   [ (AmountRatio 100, Amount 100)

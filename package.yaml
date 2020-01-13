@@ -69,6 +69,7 @@ dependencies:
 - exceptions
 - parallel
 - deepseq
+- double-conversion
 
 library:
   source-dirs: src

@@ -30,6 +30,7 @@ import qualified Data.ByteString.Builder                    as BSB
 import qualified Data.ByteString.Lazy                       as LBS
 import qualified Data.ByteString.Lazy.Char8                 as L8
 import qualified Data.ByteString.UTF8                       as BS
+import           Data.Double.Conversion.ByteString
 import qualified Data.Map                                   as M
 import           Data.Sort                                  (sort)
 import           Data.Text.Encoding
@@ -168,9 +169,8 @@ getRateLimit = do
 -- price is in units of second token
 -- e.g. TT/USDT
 -- amount is TT to be bought/sold and price is price per TT in USDT
--- TODO seems like you can't make a Buy order for too low a price or you'll get:
+-- NOTE seems like you can't make a Buy order for too low a price or you'll get:
 -- {"minAmount":1.0,"resultCode":-3}
--- in any case should try and catch errors and return -1 if order fails
 postOrder :: Int -> Double -> Double -> T.OrderType -> IO Int
 postOrder pair amount price orderType = do
   let
@@ -178,7 +178,8 @@ postOrder pair amount price orderType = do
       T.Buy  -> "buy"
       T.Sell -> "sell"
   BA.TradeExecResult code oid <- makeRequest oldGateway True "POST" "/v1/trade"
-    [("symbol", showBS pair),("amount", showBS amount),("price", showBS price),("type", ot)]
+    -- TODO this is wrong, hardcode to work with TT/USDT pairs right now...
+    [("symbol", showBS pair),("amount", toFixed 0 amount),("price", toFixed 5 price),("type", ot)]
   return oid
 
 -- TODO if order id does not exist returns {"code":"401","data":null}

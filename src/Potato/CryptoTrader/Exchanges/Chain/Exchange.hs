@@ -28,10 +28,14 @@ import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
 import           Potato.CryptoTrader.Types
 
 -- network
+-- TODO add a basetoken type parameter to this
+-- or maybe simply change network to be the base token
 class Network n where
   networkName :: Proxy n -> String
   rpc :: Proxy n -> String
   chainId :: Proxy n -> Integer
+  -- | minimum balance in the base token suggested to pay for transaction fees
+  minBalanceForGas :: Proxy n -> Integer
 
 data ThunderCoreMain
 data EthereumMain
@@ -40,12 +44,14 @@ instance Network ThunderCoreMain where
   networkName _ = "ThunderCore mainnet"
   rpc _ = "https://mainnet-rpc.thundercore.com"
   chainId _ = 108
+  minBalanceForGas _ = 200000 * floor 1e10
 
 instance Network EthereumMain where
   networkName _ = "Ethereum mainnet"
   -- my private RPC url -__- don't use
   rpc _ = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
   chainId _ = 1
+  minBalanceForGas _ = 200000 * floor 1e10
 
 -- helpers
 type ChainCtx = ((),())
@@ -65,18 +71,24 @@ type family BaseToken t where
   BaseToken TT = 'True
   BaseToken USDT = 'False
 
+-- TODO pretty sure I did the isbase thing wrong, i don't think it's necessary to specify the type when calling..... look it up again...
 class (ChainToken t1 n, ChainToken t2 n) => Uniswap (isbase :: Bool) t1 t2 n where
   -- |
   -- exchanges t1 for t2 where input amount (t1) is fixed
   -- TODO remove chainid url and token arguments, no longer needed
   -- not sure why Proxy (isbase,n) doesn't work...
+  -- TODO rename this to titjSwapInput since we frequently switch ti and tj around
   t1t2SwapInput :: forall ex m. (MonadExchange m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> ExchangeT (OnChain n) m (Either ex TxReceipt)
 
 instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'True t1 t2 n where
-  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
+    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
+    Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
 
 instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'False t1 t2 n where
-  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
+  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
+    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
+    Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
 
 class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
@@ -107,8 +119,12 @@ data OnChainOrder = OnChainOrder {
 instance ChainToken t n => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
+       -- substract away 200k gwei (or whatever) to
+       -- TODO make this abstract
        Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
-       Nothing   -> liftIO $ Amount <$> Q.getBalance url
+       Nothing   -> liftIO $ do
+         b <- Q.getBalance url
+         return . Amount $ max 0 (b - minBalanceForGas (Proxy :: Proxy n))
 
 type ExchangePairConstraint t1 t2 n = (
   Uniswap (BaseToken t1) t1 t2 n,
@@ -138,10 +154,12 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       cid = chainId nproxy
       url = rpc nproxy
     v <- case ot of
-      Buy  -> t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) ncproxy url cid addr t1 t2
-      Sell -> t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) ncproxy url cid addr t2 t1
+      Buy  -> t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) ncproxy url cid addr t2 t1
+      Sell -> t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) ncproxy url cid addr t1 t2
     case v of
-      Left (SomeException _) -> undefined
+      Left (SomeException e) -> do
+        liftIO $ print e
+        return undefined
       Right receipt          -> return $ OnChainOrder receipt
 
   -- TODO test

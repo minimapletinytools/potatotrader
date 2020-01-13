@@ -87,7 +87,7 @@ make_sellt1 bids t1 = r where
 -- | takes a list of market order asks for t1 (in base denomination)
 -- (people trying to sell t2 for t1)
 -- and creates the buyt1 function that shows how much t1 can be bought for a given quantity of t2
-make_buyt1 ::
+make_buyt1 :: forall t1 t2. (Token t1, Token t2) =>
   [(AmountRatio t2 t1, Amount t1)] -- ^ list of market bids
   -> Amount t2 -- ^ amount of t2 to be sold
   -> Amount t1 -- ^ amount of t1 bought
@@ -133,9 +133,10 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       pproxy = Proxy :: Proxy (t1, t2, Bilaxy)
       amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
       amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
+      -- TODO price_t2 needs to be based on market depth...
       price_t2 = amount_t2 / amount_t1
       pair = pairId pproxy
-    v <- liftIO $ try (postOrder pair amount_t1 amount_t2 ot)
+    v <- liftIO $ try (postOrder pair amount_t1 price_t2 ot)
     case v of
       Left (SomeException e) -> do
         liftIO $ print e
@@ -158,5 +159,5 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       -- bids are people trying to buy t1 with t2
       bids = fixDecimals $ BA.bids depth
       variance = undefined
-    --trace (show $ take 5 asks) $ return ()
-    return $ ExchangeRate (make_sellt1 asks) (make_buyt1 bids) variance
+    --trace (show $ take 5 bids) $ return ()
+    return $ ExchangeRate (make_sellt1 bids) (make_buyt1 asks) variance
