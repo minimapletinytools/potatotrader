@@ -1,16 +1,22 @@
 :: TODO TMRW::
--add account abstracted version of some stuff in Chain and Bilaxy query (this is just in prep for using ExchangeAccount. We won't switch all the way over yet)
--add monadic abstraction for some methods in chain and bilaxy query (also in preparation)
--write tests to ascertain units and exchange rate stuff is done correctly
-
+-fix the order pricing issue in Bilaxy.Exchange (using avg price, not lowest/highest price)
+  -it would actually be best if it submit several orders instead of 1 at the lowest/highest price for safety
+-add test cases for all the chain query stuff D:
+  -merge testfixture branch
 
 ::TODO::
-
-- add test cases for all the chain query stuff D:
-- reorg to give everything a package name
-- Potato.Trading
-- check if bilaxy is actually using bilaxy tokens to pay for txfees
-- figure out if txfees are levied in first or second token on bilaxy
+-test flipExchange
+DONE-reorg to give everything a package name
+DONE-Potato.Trading
+DONE-check if bilaxy is actually using bilaxy tokens to pay for txfees
+IGNORE-figure out if txfees are levied in first or second token on bilaxy
+DONE- Create `data FlipExchange e = FlipExchange e`
+  -I'm pretty sure this is doable, just don't mess up buy/sell differences and do proper conversion for ExchangeRate functions
+IGNORE-add account abstracted version of some stuff in Chain and Bilaxy query (this is just in prep for using ExchangeAccount. We won't switch all the way over yet)
+DONE-add monadic abstraction for some methods in chain and bilaxy query (also in preparation)
+IGNORE-write tests to ascertain units and exchange rate stuff is done correctly
+  -i.e. write test cases for make_buyt1 and make_sell1t
+  -for chain tests you can query the uniswap contract (and a block number) and run locally with the same numbers to ensure result is the same :D
 
 ::FUTURE::
 - accounts should not be read in IO monad. They should be passed in as an argument for each private exchange function (using data family for type)

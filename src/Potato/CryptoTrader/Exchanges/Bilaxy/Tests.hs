@@ -1,17 +1,17 @@
-module Exchanges.Bilaxy.Tests (
+module Potato.CryptoTrader.Exchanges.Bilaxy.Tests (
   tests
 ) where
 
 import           Control.Exception
-import qualified Control.Monad.Catch       as C
+import qualified Control.Monad.Catch                           as C
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Exchanges.Bilaxy.Exchange
-import           Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
+import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit  (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit                      (fromHUnitTest)
 import           Test.HUnit
-import           Types
 
 type BilaxyReaderIO = ReaderT BilaxyCtx IO
 bilaxyCtx = ((),())
@@ -68,7 +68,50 @@ test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
   liftIO $ print (o, r)
 
 
+
+-- bids are people trying to buy TT
+testBids :: [(AmountRatio USDT TT, Amount TT)]
+testBids =
+  [ (AmountRatio 100, Amount 100)
+  , (AmountRatio 90, Amount 200)
+  , (AmountRatio 80, Amount 100)]
+
+-- asks are people trying to sell TT
+testAsks :: [(AmountRatio USDT TT, Amount TT)]
+testAsks =
+  [ (AmountRatio 100, Amount 100)
+  , (AmountRatio 110, Amount 200)
+  , (AmountRatio 120, Amount 100)]
+
+test_make_sellt1 :: Spec
+test_make_sellt1 = do
+  let
+    mySellt1 = make_sellt1 testBids
+  it "returns expected value for boundary bids" $ do
+    mySellt1 (Amount 100) `shouldBe` Amount (100*100)
+    mySellt1 (Amount (100+200)) `shouldBe` Amount (100*100+200*90)
+  it "returns correct value for partially executed bid" $ do
+    mySellt1 (Amount (100+100)) `shouldBe` Amount (100*100+100*90)
+
+test_make_buyt1 :: Spec
+test_make_buyt1 = do
+  let
+    myBuyt1 = make_buyt1 testAsks
+  it "returns expected value for boundary bids" $ do
+    myBuyt1 (Amount 10000) `shouldBe` Amount (100)
+    myBuyt1 (Amount (100*100+110*200)) `shouldBe` Amount (100+200)
+  it "returns correct value for partially executed bid" $ do
+    myBuyt1 (Amount (100*100+110*100)) `shouldBe` Amount (100+100)
+
 tests :: IO ()
+tests = hspec $
+  describe "Bilaxy" $ do
+    describe "make_sellt1" $
+      test_make_sellt1
+    describe "make_buyt1" $
+      test_make_buyt1
+
+{-tests :: IO ()
 tests = hspec $
   describe "Bilaxy" $ do
     describe "Public API" $
@@ -82,4 +125,4 @@ tests = hspec $
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
     describe "order_cancel" $
-      fromHUnitTest test_order_cancel
+      fromHUnitTest test_order_cancel-}

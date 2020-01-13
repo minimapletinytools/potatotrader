@@ -1,15 +1,16 @@
-module Exchanges.Chain.Tests (
+module Potato.CryptoTrader.Exchanges.Chain.Tests (
   tests
 ) where
 
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Exchanges.Chain.Exchange
-import           Exchanges.Chain.Query    hiding (getBalance)
+import           Potato.CryptoTrader.Exchanges.Chain.Exchange
+import           Potato.CryptoTrader.Exchanges.Chain.Query    hiding
+                                                               (getBalance)
+import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit                     (fromHUnitTest)
 import           Test.HUnit
-import           Types
 
 
 type ChainReaderIO a = ReaderT (ChainCtx) IO a

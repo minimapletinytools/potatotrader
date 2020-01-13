@@ -36,7 +36,6 @@ default-extensions:
 - DeriveFunctor
 - DeriveFoldable
 - DeriveGeneric
-- DeriveAnyClass
 - DeriveTraversable
 - FlexibleInstances
 - FlexibleContexts
@@ -44,6 +43,7 @@ default-extensions:
 - MultiWayIf
 - TupleSections
 - MultiParamTypeClasses
+
 
 
 dependencies:
@@ -67,9 +67,21 @@ dependencies:
 - hspec-contrib
 - mtl
 - exceptions
+- parallel
+- deepseq
+- double-conversion
 
 library:
   source-dirs: src
+  exposed-modules:
+    - Potato.CryptoTrader
+    - Potato.CryptoTrader.Exchanges.Bilaxy
+    - Potato.CryptoTrader.Exchanges.Chain
+
+    # exported for test suite, TODO make a separate test suite package so these aren't exported in the lib
+    - Potato.CryptoTrader.Arbitrage.Tests
+    - Potato.CryptoTrader.Exchanges.Bilaxy.Tests
+    - Potato.CryptoTrader.Exchanges.Chain.Tests
 
 executables:
   bilaxypotato-exe:

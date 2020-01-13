@@ -15,7 +15,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-module Exchanges.Chain.Query (
+module Potato.CryptoTrader.Exchanges.Chain.Query (
   getAddress,
   getBalanceOf,
   getBalance,
@@ -157,11 +157,16 @@ txEthToTokenSwapInput url cid uniAddr amountEth minTokens = do
     bn <- WEB3.blockNumber
     bl <- WEB3.getBlockByNumber bn
     return $ toInteger $ blockTimestamp bl
+  putStrLn $ "selling " ++  show (fromWei (toWei amountEth) :: Ether) ++ " for " ++ show minTokens ++ " tokens time " ++ show blockTime
   doweb3stuff url $
     withAccount acct
     . withParam (to .~ uniAddr)
-    . withParam (value .~ amountEth) $
-      ethToTokenSwapInput (fromInteger minTokens) (fromInteger (blockTime + 100))
+    . withParam (value .~ amountEth)
+    -- TODO make this a parameter, for now hardcoded to 10 gwei
+    . withParam (gasPrice .~ (10 :: Shannon))
+    -- TODO make this a parameter, for now hardcoded to 200k gas
+    . withParam (gasLimit .~ 200000) $
+      ethToTokenSwapInput (fromInteger minTokens) (fromInteger (blockTime + 9999999))
 
 -- | txTokenToEthSwapInput
 -- calls the following function:
@@ -182,10 +187,15 @@ txTokenToEthSwapInput url cid uniAddr amountTokens minEth = do
     bn <- WEB3.blockNumber
     bl <- WEB3.getBlockByNumber bn
     return $ toInteger $ blockTimestamp bl
+  putStrLn $ "selling " ++  show amountTokens ++ " tokens for " ++ show (fromWei (toWei minEth) :: Ether) ++ " time " ++ show blockTime
   doweb3stuff url $
     withAccount acct
-    . withParam (to .~ uniAddr) $
-      tokenToEthSwapInput (fromInteger amountTokens) (fromInteger (toWei minEth)) (fromInteger (blockTime + 100))
+    . withParam (to .~ uniAddr)
+    -- TODO make this a parameter, for now hardcoded to 10 gwei
+    . withParam (gasPrice .~ (10 :: Shannon))
+    -- TODO make this a parameter, for now hardcoded to 200k gas
+    . withParam (gasLimit .~ 200000) $
+      tokenToEthSwapInput (fromInteger amountTokens) (fromInteger (toWei minEth)) (fromInteger (blockTime + 9999999))
 
 
 

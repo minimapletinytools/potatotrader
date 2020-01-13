@@ -1,4 +1,4 @@
-module Exchanges.Bilaxy.Aeson (
+module Potato.CryptoTrader.Exchanges.Bilaxy.Aeson (
   BilaxyResponse(..),
   Ticker(..),
   BalanceData(..),
@@ -14,18 +14,18 @@ module Exchanges.Bilaxy.Aeson (
 )
 where
 
-import           Control.Monad    (foldM)
+import           Control.Monad             (foldM)
 import           Data.Aeson
 import           Data.Aeson.Types
-import qualified Data.Map         as M
+import qualified Data.Map                  as M
 import           Data.Maybe
-import           Data.Text        (Text)
+import           Data.Text                 (Text)
 import           Data.Time.Clock
-import           Data.Vector      ((!))
-import           Debug.Trace      (trace)
+import           Data.Vector               ((!))
+import           Debug.Trace               (trace)
 import           GHC.Generics
 
-import qualified Types            as T
+import qualified Potato.CryptoTrader.Types as T
 
 lookupMany :: (FromJSON a) => Object -> [Text] -> Parser a
 lookupMany v x = do

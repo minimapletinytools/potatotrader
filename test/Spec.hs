@@ -1,9 +1,11 @@
-import qualified Arbitrage.Tests
-import qualified Exchanges.Bilaxy.Tests
-import qualified Exchanges.Chain.Tests
+--import           Potato.CryptoTrader
+
+import qualified Potato.CryptoTrader.Arbitrage.Tests
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Tests
+import qualified Potato.CryptoTrader.Exchanges.Chain.Tests
 
 main :: IO ()
 main = do
-  Exchanges.Bilaxy.Tests.tests
-  Exchanges.Chain.Tests.tests
-  Arbitrage.Tests.tests
+  --Potato.CryptoTrader.Exchanges.Bilaxy.Tests.tests
+  --Potato.CryptoTrader.Exchanges.Chain.Tests.tests
+  Potato.CryptoTrader.Arbitrage.Tests.tests
