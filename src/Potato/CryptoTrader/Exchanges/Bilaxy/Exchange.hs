@@ -11,6 +11,7 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
 ) where
 
 import           Control.Exception
+import           Control.Monad                              (forM)
 import           Control.Monad.IO.Class
 import           Data.List                                  (mapAccumL)
 import           Data.Proxy
@@ -73,7 +74,7 @@ getDepthHelper pproxy = do
   let
     t1d = fromInteger $ decimals (Proxy :: Proxy t1)
     t2d = fromInteger $ decimals (Proxy :: Proxy t2)
-    fixDecimals = map (\(BA.MarketOrder p v _) -> (AmountRatio $ p*t2d/t1d, Amount . floor $ v*t1d :: Amount t1))
+    fixDecimals = map (\(BA.MarketOrder p v _) -> (stdDenomToRatio p, fromStdDenom v))
     -- asks are people trying to sell t1 for t2
     -- bids are people trying to buy t1 with t2
     -- price is always in t2, volume in t1
@@ -87,8 +88,9 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
-  type Order t1 t2 Bilaxy = BilaxyOrderDetails
+  type Order t1 t2 Bilaxy = [BilaxyOrderDetails]
 
+  -- TODO fix
   getStatus _ (BilaxyOrderDetails oid) = do
     v <- liftIO $ try (getOrderInfo oid)
     case v of
@@ -97,34 +99,38 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
 
   canCancel _ _ = True
 
-  cancel _ (BilaxyOrderDetails oid) = do
+  cancel _ orders = all id <$> forM orders (\(BilaxyOrderDetails oid) -> do
     v <- liftIO $ try (cancelOrder oid)
     case v of
       Left (SomeException _) -> return False
-      Right oi               -> return True
+      Right oi               -> return True)
 
+  -- | Note this function can't distinguish between orders made by different calls to order so it groups them all together as a single order
+  -- also note that this function returns orders not made through this library
+  -- TODO fix this problem by using ExchangeCache
   getOrders _ = do
     orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
-    return $ map (BilaxyOrderDetails . BA.oi_id) orders
+    return $ [map (BilaxyOrderDetails . BA.oi_id) orders]
 
-  order pproxy ot (Amount t1) (Amount t2) = do
-    er <- getExchangeRate pproxy
+  order pproxy ot t1 t2 = do
+    (asks, bids) <- getDepthHelper pproxy
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
-      pair = pairId pproxy
+      t1d = fromInteger $ decimals (Proxy :: Proxy t1)
+      t2d = fromInteger $ decimals (Proxy :: Proxy t2)
       pvpairs = case ot of
         -- buying t1 with t2
-        Buy  -> undefined
+        Buy  -> make_buyPerPricet1_from_askst1 asks t2
         -- selling t1 for t2
-        Sell -> undefined
-    v <- undefined
-    --v <- liftIO $ try (postOrder pair amount_t1 price_t2 ot)
-    case v of
+        Sell -> make_toSellPerPricet1_from_bidst1 bids t1
+      convertedPairs = (flip map) pvpairs $ \(pt2t1, vt1) -> (ratioToStdDenom pt2t1, toStdDenom vt1)
+    v <- forM convertedPairs $ \(pt2t1, vt1) -> liftIO $ try (postOrder (pairId pproxy) vt1 pt2t1 ot)
+    forM v $ \case
       Left (SomeException e) -> do
         liftIO $ print e
         return undefined
-      Right oid              -> return $ BilaxyOrderDetails oid
+      Right oid -> return $ BilaxyOrderDetails oid
 
   getExchangeRate pproxy = do
     (asks, bids) <- getDepthHelper pproxy

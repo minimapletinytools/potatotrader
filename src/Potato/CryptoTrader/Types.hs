@@ -20,6 +20,8 @@ module Potato.CryptoTrader.Types (
   Token(..),
   toStdDenom,
   fromStdDenom,
+  ratioToStdDenom,
+  stdDenomToRatio,
   ExchangeCtx(..),
   MonadExchange,
   ExchangeT,
@@ -99,6 +101,28 @@ buyt2 = sellt1
 sellt2 :: ExchangeRate t1 t2 -> (Amount t2 -> Amount t1)
 sellt2 = buyt1
 
+-- | A class for tradeable tokens
+class Token t where
+  tokenName :: Proxy t -> String
+  decimals :: Proxy t -> Integer
+
+-- TODO write invert tests for these
+-- | converts currency from base denomination to standard denomination
+toStdDenom :: forall t. (Token t) => Amount t -> Double
+toStdDenom (Amount t) = fromIntegral t / fromIntegral (decimals (Proxy :: Proxy t))
+
+-- | converts currency from standard demonation to base demonation
+fromStdDenom :: forall t. (Token t) => Double -> Amount t
+fromStdDenom = Amount . floor . (* fromInteger (decimals (Proxy :: Proxy t)))
+
+-- | converts ratio from base denomination to standard denomination
+ratioToStdDenom :: forall t1 t2. (Token t1, Token t2) => AmountRatio t1 t2 -> Double
+ratioToStdDenom (AmountRatio r) = r * fromIntegral (decimals (Proxy :: Proxy t2)) / fromIntegral (decimals (Proxy :: Proxy t1))
+
+-- | converts ratio from standard demonation to base demonation
+stdDenomToRatio :: forall t1 t2. (Token t1, Token t2) => Double -> AmountRatio t1 t2
+stdDenomToRatio r = AmountRatio $ r * fromIntegral (decimals (Proxy :: Proxy t1)) / fromIntegral (decimals (Proxy :: Proxy t2))
+
 -- | not an especially pretty implementation, just for debugging purposes
 instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
   show (ExchangeRate sellt1' buyt1' variance') = output where
@@ -108,18 +132,6 @@ instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
     buyChart = map (unAmount . buyt1' . Amount) amounts
     output = "sell: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts sellChart) ++ "\n"
       ++ "buy: " ++ unwords (zipWith (\a b -> show a ++":"++ show b) amounts buyChart) ++ "\n"
-
--- | A class for tradeable tokens
-class Token t where
-  tokenName :: Proxy t -> String
-  decimals :: Proxy t -> Integer
-
-toStdDenom :: forall t. (Token t) => Amount t -> Double
-toStdDenom (Amount t) = fromIntegral t / fromIntegral (decimals (Proxy :: Proxy t))
-
--- | converts currency from standard demonation to base demonation
-fromStdDenom :: forall t. (Token t) => Double -> Amount t
-fromStdDenom = Amount . floor . (* fromInteger (decimals (Proxy :: Proxy t)))
 
 -- | A class for exchanges
 class Exchange e where

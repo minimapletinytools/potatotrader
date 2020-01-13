@@ -28,19 +28,17 @@ cancelAllOrders p = do
 make_toSellPerPricet1_from_bidst1 ::
   [(AmountRatio t2 t1, Amount t1)] -- ^ list of market asks
   -> Amount t1 -- ^ amount of t1 to be sold
-  -> [(AmountRatio t2 t1, Amount t1)] -- ^ amount of t1 bought at each price
+  -> [(AmountRatio t2 t1, Amount t1)] -- ^ amount of t1 sold at each price
 make_toSellPerPricet1_from_bidst1 bids t1 = r where
   myFunc :: Amount t1 -> (AmountRatio t2 t1, Amount t1) -> (Amount t1, Amount t1)
   myFunc remainingt1 (price, volume) = (remainingt1-soldt1, soldt1) where
     soldt1 = min remainingt1 volume
-    --boughtt2 = soldt1 min (remainingt1 *$:$ price) (volume *$:$ price)
-    --paidt1 = boughtt2 /$:$ price
   (_, soldt1Array) = mapAccumL myFunc t1 bids
   r = zip (map fst bids) (takeWhile (> 0) soldt1Array)
 
 -- | takes a list of market order asks for t1 (in base denomination)
 -- (asks are people trying to sell t2 for t1)
--- and creates the buyt1 function that shows how much t1 can be bought for a given quantity of t2
+-- and creates the buyt1 function that shows how much t1 should be bought for a given quantity of t2
 make_buyPerPricet1_from_askst1 :: forall t1 t2. (Token t1, Token t2) =>
   [(AmountRatio t2 t1, Amount t1)] -- ^ list of market bids
   -> Amount t2 -- ^ amount of t2 to be sold
