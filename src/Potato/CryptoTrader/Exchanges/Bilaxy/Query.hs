@@ -44,7 +44,6 @@ import           System.IO.Error
 import           Text.Printf
 
 
-
 class Monad m => MonadHttp m where
   httpLBS :: Request -> m (Response LBS.ByteString)
 
@@ -63,8 +62,6 @@ instance MonadKeyReader IO where
 
 type MonadQuery m = (Monad m, MonadHttp m, MonadThrow m, MonadKeyReader m)
 
-
-
 -- TODO test fixture class
 -- see https://lexi-lambda.github.io/blog/2016/10/03/using-types-to-unit-test-in-haskell/
 {-
@@ -77,7 +74,6 @@ newtype TestM log a =
            )
 -}
 
-
 toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
 
@@ -89,7 +85,6 @@ nilKey = ("","")
 newtype DecodeError = DecodeError String
   deriving (Show)
 instance Exception DecodeError
-
 
 -- TODO prompt for password and decrypt
 -- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
@@ -234,8 +229,6 @@ cancelOrder oid = do
   BA.BilaxyResponse code (rid :: Int) <- makeRequest kp oldGateway "POST" "/v1/cancel_trade" [("id", showBS oid)]
   return ()
 
-
-
 -- TODO delete stuff below
 printResponse :: Response LBS.ByteString -> IO ()
 printResponse response = do
@@ -243,7 +236,6 @@ printResponse response = do
     show (getResponseStatusCode response)
   print $ getResponseHeader "Content-Type" response
   LBS.putStrLn $ getResponseBody response
-
 
 testBalance :: IO ()
 testBalance = do

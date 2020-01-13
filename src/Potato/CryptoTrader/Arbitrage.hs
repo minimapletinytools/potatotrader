@@ -9,7 +9,7 @@ module Potato.CryptoTrader.Arbitrage (
   ExchangePairT(..),
   ArbitrageLogs,
   ArbitrageConstraints,
-  doArbitrage,
+  arbitrage,
 
   -- exported for testing
   searchMax
@@ -23,6 +23,7 @@ import           Control.Monad.Writer.Lazy
 import           Control.Parallel.Strategies
 import           Data.Proxy
 import           Data.Semigroup
+import qualified Data.Text                   as T
 import           Potato.CryptoTrader.Types
 
 import           Debug.Trace
@@ -42,12 +43,10 @@ type ArbitrageConstraints t1 t2 e1 e2 m = (
   )
 
 -- | logging type for arbitrage
-data ArbitrageLogs = ArbitrageLogs deriving (Show)
-
 -- TODO
+data ArbitrageLogs = ArbitrageLogs deriving (Show)
 instance Semigroup ArbitrageLogs where
   (<>) = const
-
 instance Monoid ArbitrageLogs where
   mempty = ArbitrageLogs
 
@@ -87,10 +86,10 @@ cancelAllOrders p = do
 -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
 --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
 --
-doArbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter ArbitrageLogs (ExchangePairT e1 e2 m)) =>
+arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m)) =>
   Proxy (t1, t2, e1, e2)
   -> ExchangePairT e1 e2 m ()
-doArbitrage _ = do
+arbitrage _ = do
 
   -- query and cancel all orders
   qncresult <- try $ do

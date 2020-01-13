@@ -31,7 +31,7 @@ testArbitrage :: (ArbitrageConstraints TT USDT E1 E2 ArbMonad) =>
 testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),()))
-    arb = doArbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
+    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
   rslt <- runWriterT $ flip runReaderT ctx $ arb
   print rslt -- force rslt
   return ()
