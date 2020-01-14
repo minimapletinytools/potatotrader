@@ -5,17 +5,17 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
   RealBilaxyPair(..),
   Bilaxy(..),
   BilaxyCache,
-  BilaxyAccount,
   BilaxyCtx,
   BilaxyOrderDetails(..)
 ) where
 
 import           Control.Exception
-import           Control.Monad                              (forM)
+import           Control.Monad                                (forM)
 import           Control.Monad.IO.Class
-import           Data.List                                  (mapAccumL)
+import           Data.List                                    (mapAccumL)
 import           Data.Proxy
-import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Account
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson   as BA
 import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
 import           Potato.CryptoTrader.Helpers
 import           Potato.CryptoTrader.Types
@@ -33,9 +33,10 @@ instance RealBilaxyPair TT USDT where
 -- | Bilaxy exchange type
 data Bilaxy
 
--- | `ExchangeCtx Bilaxy` types
-type BilaxyAccount = ()
+-- TODO move to Cache.hs
 type BilaxyCache = ()
+
+-- | `ExchangeCtx Bilaxy` type used by `ExchangeT Bilaxy`
 type BilaxyCtx = (BilaxyCache, BilaxyAccount)
 
 instance Exchange Bilaxy where
@@ -87,13 +88,13 @@ getDepthHelper pproxy = do
 
 -- TODO do a better implementation
 collapseOrderState :: [OrderState] -> OrderState
-collapseOrderState [] = Missing
-collapseOrderState [x] = x
-collapseOrderState (Pending:_) = Pending
+collapseOrderState []                    = Missing
+collapseOrderState [x]                   = x
+collapseOrderState (Pending:_)           = Pending
 collapseOrderState (PartiallyExecuted:_) = PartiallyExecuted
-collapseOrderState (Cancelled:_:os) = Cancelled
-collapseOrderState (Missing:_) = Missing
-collapseOrderState (Executed:o:os) = collapseOrderState (o:Executed:os)
+collapseOrderState (Cancelled:_:os)      = Cancelled
+collapseOrderState (Missing:_)           = Missing
+collapseOrderState (Executed:o:os)       = collapseOrderState (o:Executed:os)
 
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)

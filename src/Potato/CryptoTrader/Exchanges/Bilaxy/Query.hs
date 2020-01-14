@@ -23,30 +23,37 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Query (
 
 where
 
-import Control.Concurrent
+import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Catch
-import qualified Crypto.Hash.SHA1                           as SHA1
+import qualified Crypto.Hash.SHA1                             as SHA1
 import           Data.Aeson
-import qualified Data.ByteString                            as BS
-import qualified Data.ByteString.Builder                    as BSB
-import qualified Data.ByteString.Lazy                       as LBS
-import qualified Data.ByteString.UTF8                       as BS
+import qualified Data.ByteString                              as BS
+import qualified Data.ByteString.Builder                      as BSB
+import qualified Data.ByteString.Lazy                         as LBS
+import qualified Data.ByteString.UTF8                         as BS
 import           Data.Double.Conversion.ByteString
-import qualified Data.Map                                   as M
-import           Data.Sort                                  (sort)
+import qualified Data.Map                                     as M
+import           Data.Sort                                    (sort)
 import           Data.Text.Encoding
-import Data.Time
---import           Data.UnixTime
-import           Debug.Trace                                (trace)
-import           Network.HTTP.Simple                        hiding (httpLBS)
-import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
-import qualified Potato.CryptoTrader.Types                  as T
+import           Data.Time
+import           Debug.Trace                                  (trace)
+import           Network.HTTP.Simple                          hiding (httpLBS)
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Account
+import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson   as BA
+import qualified Potato.CryptoTrader.Types                    as T
 import           System.IO
 import           System.IO.Error
 import           Text.Printf
 
+-- | 🥔🥔🥔
+class Monad m => MonadPotatoDebug m where
+  consoleDebug :: (Show s) => s -> m ()
+  consoleDebug s = trace (show s) $ return ()
+
+instance MonadPotatoDebug IO where
+  consoleDebug = print
 
 class Monad m => MonadHttp m where
   httpLBS :: Request -> m (Response LBS.ByteString)
@@ -55,16 +62,16 @@ instance MonadHttp IO where
   httpLBS = httpLbs
 
 class Monad m => MonadKeyReader m where
-  readKeys :: m KeyPair
+  readKeys :: m BilaxyAccount
 
 instance MonadKeyReader IO where
   readKeys = readKeysIO
 
--- TODO
+-- TODO once we add keys
 --instance (Monad m) => MonadKeyReader (ReaderT ((),()) m) where
 --  readKeys = undefined
 
-type MonadQuery m = (Monad m, MonadHttp m, MonadThrow m, MonadKeyReader m)
+type MonadQuery m = (Monad m, MonadPotatoDebug m, MonadHttp m, MonadThrow m, MonadKeyReader m)
 
 -- TODO test fixture class
 -- see https://lexi-lambda.github.io/blog/2016/10/03/using-types-to-unit-test-in-haskell/
@@ -82,9 +89,6 @@ toStrict1 :: LBS.ByteString -> BS.ByteString
 toStrict1 = BS.concat . LBS.toChunks
 
 type Params = [(BS.ByteString, BS.ByteString)]
-type KeyPair = (BS.ByteString, BS.ByteString)
-nilKey :: KeyPair
-nilKey = ("","")
 
 newtype DecodeError = DecodeError String
   deriving (Show)
@@ -92,7 +96,7 @@ instance Exception DecodeError
 
 -- TODO prompt for password and decrypt
 -- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
-readKeysIO :: IO KeyPair
+readKeysIO :: IO BilaxyAccount
 readKeysIO = do
     handle <- openFile "keys.txt" ReadMode
     pub <- BS.hGetLine handle
@@ -100,8 +104,8 @@ readKeysIO = do
     hClose handle
     return (pub, sec)
 
--- | signParams takes a KeyPair and query parameters and signs according to Bilaxy's requirements
-signParams :: KeyPair -> Params -> Params
+-- | signParams takes a BilaxyAccount and query parameters and signs according to Bilaxy's requirements
+signParams :: BilaxyAccount -> Params -> Params
 signParams (pub, sec) params = final
   where
     params' = params ++ [("key", pub)]
@@ -129,23 +133,23 @@ generateRequest gateway method path q = do
   r <- parseRequest gateway
   return $ query method path q r
 
--- | generatePrivRequest generates a private Bilaxy API request with given keypair, method, path, and params
-generatePrivRequest :: MonadThrow m => String -> KeyPair -> BS.ByteString -> BS.ByteString -> Params -> m Request
+-- | generatePrivRequest generates a private Bilaxy API request with given BilaxyAccount, method, path, and params
+generatePrivRequest :: MonadThrow m => String -> BilaxyAccount -> BS.ByteString -> BS.ByteString -> Params -> m Request
 generatePrivRequest gateway kp method path q = do
   let q2 = signParams kp q
   r <- parseRequest gateway
   return $ query method path q2 r
 
 -- | makeRequest makes a request and converts JSON return value into a haskell object
-makeRequest :: (MonadQuery m, FromJSON a) => KeyPair -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
+makeRequest :: (MonadQuery m, FromJSON a) => BilaxyAccount -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
 makeRequest kp gateway method path params = do
   let priv = kp /= nilKey
   request <- if priv
     then generatePrivRequest gateway kp method path params
     else generateRequest gateway method path params
-  --printf "querying (priv=%s):\n%s" (show priv) (show request)
+  consoleDebug $ "querying (priv="++(show priv)++"):\n"++(show request)
   response <- httpLBS request
-  --putStrLn $ "response status code: " ++ show (getResponseStatusCode response)
+  consoleDebug $ "response status code: " ++ show (getResponseStatusCode response)
   --printResponse response
   let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
@@ -153,7 +157,7 @@ makeRequest kp gateway method path params = do
     Right a -> return a
 
 -- | makeStandardResponseRequest calls makeRequest assuming the return type is wrapped in BA.BilaxyResponse
-makeStandardResponseRequest :: (MonadQuery m, FromJSON a) => KeyPair -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
+makeStandardResponseRequest :: (MonadQuery m, FromJSON a) => BilaxyAccount -> String -> BS.ByteString -> BS.ByteString -> Params -> m a
 makeStandardResponseRequest kp gateway method path params = do
   BA.BilaxyResponse code a <- makeRequest kp gateway method path params
   case code of
@@ -253,12 +257,12 @@ recordDepth pair seconds = do
 
 
 -- TODO delete stuff below
-printResponse :: Response LBS.ByteString -> IO ()
+printResponse :: (MonadPotatoDebug m) => Response LBS.ByteString -> m ()
 printResponse response = do
-  putStrLn $ "The status code was: " ++
+  consoleDebug $ "The status code was: " ++
     show (getResponseStatusCode response)
-  print $ getResponseHeader "Content-Type" response
-  LBS.putStrLn $ getResponseBody response
+  consoleDebug $ getResponseHeader "Content-Type" response
+  consoleDebug $ getResponseBody response
 
 testBalance :: IO ()
 testBalance = do

@@ -7,18 +7,18 @@ module Potato.CryptoTrader.Arbitrage.Tests (
 
 import           Control.Exception
 import           Control.Monad
-import qualified Control.Monad.Catch                           as C
+import qualified Control.Monad.Catch                  as C
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import qualified Control.Monad.Trans                           as MTL
+import qualified Control.Monad.Trans                  as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import           Potato.CryptoTrader.Arbitrage
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
-import           Potato.CryptoTrader.Exchanges.Chain.Exchange
+import           Potato.CryptoTrader.Exchanges.Bilaxy
+import           Potato.CryptoTrader.Exchanges.Chain
 import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit                      (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit             (fromHUnitTest)
 import           Test.HUnit
 
 
@@ -30,7 +30,7 @@ testArbitrage :: (ArbitrageConstraints TT USDT E1 E2 ArbMonad) =>
   Test
 testArbitrage = TestCase $ do
   let
-    ctx = (((),()),((),()))
+    ctx = (((),()),((),nilKey))
     arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
   rslt <- runWriterT $ flip runReaderT ctx $ arb
   print rslt -- force rslt
@@ -54,5 +54,5 @@ tests :: IO ()
 tests = hspec $ do
   describe "Arbitrage" $
     fromHUnitTest testArbitrage
-  --describe "searchMax" $
-  --  test_searchMax
+  describe "searchMax" $
+    test_searchMax

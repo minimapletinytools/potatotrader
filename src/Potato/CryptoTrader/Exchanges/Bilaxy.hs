@@ -9,12 +9,15 @@ Stability   : experimental
 
 module Potato.CryptoTrader.Exchanges.Bilaxy (
   module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange,
+  module Potato.CryptoTrader.Exchanges.Bilaxy.Account,
 
   -- temp stuff exported for testing
   module Potato.CryptoTrader.Exchanges.Bilaxy.Query
 ) where
 
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Account
 import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
 
 -- export some utility and testing methods
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Query    (testDepth, recordDepth)
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query    (recordDepth,
+                                                                testDepth)

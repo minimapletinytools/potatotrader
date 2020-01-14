@@ -3,18 +3,18 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Tests (
 ) where
 
 import           Control.Exception
-import qualified Control.Monad.Catch                           as C
+import qualified Control.Monad.Catch                        as C
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
+import           Potato.CryptoTrader.Exchanges.Bilaxy
 import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
 import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit                      (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit                   (fromHUnitTest)
 import           Test.HUnit
 
 type BilaxyReaderIO = ReaderT BilaxyCtx IO
-bilaxyCtx = ((),())
+bilaxyCtx = ((),nilKey)
 
 flipReaderT = flip runReaderT
 
@@ -60,12 +60,15 @@ test_getExchangeRate = TestCase $ flipReaderT bilaxyCtx $ do
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
+-- TODO this test will actually buy stuff because order function goes by market ask prices
+{-
 test_order_cancel :: Test
 test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
   let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
-  o <- order p Sell (fromStdDenom 9) (fromStdDenom 123)
+  o <- order p Sell (fromStdDenom 1000) (fromStdDenom 123)
   r <- cancel p o
   liftIO $ print (o, r)
+-}
 
 
 tests :: IO ()
@@ -81,5 +84,5 @@ tests = hspec $
       fromHUnitTest test_getOrderInfo
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
-    --describe "order_cancel" $
-    --  fromHUnitTest test_order_cancel
+--    describe "order_cancel" $
+--      fromHUnitTest test_order_cancel
