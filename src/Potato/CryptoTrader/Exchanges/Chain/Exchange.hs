@@ -27,6 +27,10 @@ import           Network.Ethereum.Api.Types                (TxReceipt (..))
 import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
 import           Potato.CryptoTrader.Types
 
+
+uniswapTxFee :: Amount TT
+uniswapTxFee = Amount (floor 4.7878e14)
+
 -- network
 -- TODO add a basetoken type parameter to this
 -- or maybe simply change network to be the base token
@@ -175,6 +179,8 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
     Amount t1b <- getBalanceOf t1nproxy uniAddr
     Amount t2b <- getBalanceOf t2nproxy uniAddr
     let
+      -- TODO apply transaction fee, however, we need to know which one is the base token to do this
+      -- make it a function of Uniswap class since it already knows which token is which type
       sellt1 (Amount t1) = Amount $ Q.calcInputPrice Q.defaultFee t1 t1b t2b
       buyt1 (Amount t2) = Amount $ Q.calcInputPrice Q.defaultFee t2 t2b t1b
       variance = undefined
