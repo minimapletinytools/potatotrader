@@ -65,11 +65,11 @@ class Monad m => MonadKeyReader m where
   readKeys :: m BilaxyAccount
 
 instance MonadKeyReader IO where
-  readKeys = readKeysIO
+  readKeys = readBilaxAccount
 
 -- TODO once we add keys
---instance (Monad m) => MonadKeyReader (ReaderT ((),()) m) where
---  readKeys = undefined
+--instance (Monad m) => MonadKeyReader (ReaderT ((),BilaxyAccount) m) where
+  --readKeys = snd <$> ask
 
 type MonadQuery m = (Monad m, MonadPotatoDebug m, MonadHttp m, MonadThrow m, MonadKeyReader m)
 
@@ -93,16 +93,6 @@ type Params = [(BS.ByteString, BS.ByteString)]
 newtype DecodeError = DecodeError String
   deriving (Show)
 instance Exception DecodeError
-
--- TODO prompt for password and decrypt
--- | readKeys reads an unencrypted Bilaxy API key pair from file assuming first line is pub key and second line is secret
-readKeysIO :: IO BilaxyAccount
-readKeysIO = do
-    handle <- openFile "keys.txt" ReadMode
-    pub <- BS.hGetLine handle
-    sec <- BS.hGetLine handle
-    hClose handle
-    return (pub, sec)
 
 -- | signParams takes a BilaxyAccount and query parameters and signs according to Bilaxy's requirements
 signParams :: BilaxyAccount -> Params -> Params
