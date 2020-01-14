@@ -125,20 +125,30 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
     return $ [map (BilaxyOrderDetails . BA.oi_id) orders]
 
-  order pproxy ot t1 t2 = do
+  order pproxy ofl ot t1 t2 = do
     (asks, bids) <- getDepthHelper pproxy
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
       t1d = fromInteger $ decimals (Proxy :: Proxy t1)
       t2d = fromInteger $ decimals (Proxy :: Proxy t2)
-      pvpairs = case ot of
-        -- buying t1 with t2
-        Buy  -> make_buyPerPricet1_from_askst1 asks t2
-        -- selling t1 for t2
-        Sell -> make_toSellPerPricet1_from_bidst1 bids t1
-      convertedPairs = (flip map) pvpairs $ \(pt2t1, vt1) -> (ratioToStdDenom pt2t1, toStdDenom vt1)
-    v <- forM convertedPairs $ \(pt2t1, vt1) -> liftIO $ try (postOrder (pairId pproxy) vt1 pt2t1 ot)
+      pair = pairId pproxy
+    v <- case ofl of
+      Rigid -> do
+        let
+          amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
+          amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
+          price_t2 = amount_t2 / amount_t1
+        return <$> liftIO (try (postOrder pair amount_t1 price_t2 ot))
+      Flexible -> do
+        let
+          pvpairs = case ot of
+            -- buying t1 with t2
+            Buy  -> make_buyPerPricet1_from_askst1 asks t2
+            -- selling t1 for t2
+            Sell -> make_toSellPerPricet1_from_bidst1 bids t1
+          convertedPairs = (flip map) pvpairs $ \(pt2t1, vt1) -> (ratioToStdDenom pt2t1, toStdDenom vt1)
+        forM convertedPairs $ \(pt2t1, vt1) -> liftIO $ try (postOrder pair vt1 pt2t1 ot)
     forM v $ \case
       Left (SomeException e) -> do
         liftIO $ print e

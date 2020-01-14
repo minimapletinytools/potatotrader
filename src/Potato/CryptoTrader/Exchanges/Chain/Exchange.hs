@@ -82,13 +82,11 @@ class (ChainToken t1 n, ChainToken t2 n) => Uniswap (isbase :: Bool) t1 t2 n whe
 
 instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'True t1 t2 n where
   t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
-    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
-    Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
+    Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
 instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'False t1 t2 n where
   t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
-    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
-    Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
+    Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
 class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
@@ -145,17 +143,20 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
 
   -- TODO TEST
 
-  order _ ot t1 t2 = do
+  order _ ofl ot t1 t2 = do
     let
       nproxy = Proxy :: Proxy n
-      ncproxy = Proxy :: Proxy (n)
       pproxy = Proxy :: Proxy (t1,t2,OnChain n)
       addr = pairId pproxy
       cid = chainId nproxy
       url = rpc nproxy
+      flex :: forall t. Amount t -> Amount t
+      flex = case ofl of
+        Flexible -> Amount . floor . (*0.95) . fromIntegral
+        Rigid    -> id
     v <- case ot of
-      Buy  -> t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) ncproxy url cid addr t2 t1
-      Sell -> t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) ncproxy url cid addr t1 t2
+      Buy  -> t1t2SwapInput (Proxy :: Proxy (BaseToken t2)) nproxy url cid addr t2 (flex t1)
+      Sell -> t1t2SwapInput (Proxy :: Proxy (BaseToken t1)) nproxy url cid addr t1 (flex t2)
     case v of
       Left (SomeException e) -> do
         liftIO $ print e

@@ -15,6 +15,7 @@ module Potato.CryptoTrader.Types (
   (/$:$),
   Liquidity(..),
   OrderType(..),
+  OrderFlex(..),
   ExchangeRate(..),
 
   Token(..),
@@ -74,6 +75,12 @@ data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 -- | the type of order
 -- for a token pair `t1,t2`, `Buy` and `Sell` refers to buying and selling `t1` respectively
 data OrderType = Buy | Sell deriving (Eq, Show)
+
+-- TODO add a parameter to Flexible orders on how much the price is allowed to flex :)
+-- | flexibility of an order
+-- `Rigid` means the order must meet the set price or be better
+-- `Flexible` gives flexibility to the order price
+data OrderFlex = Flexible | Rigid deriving (Eq, Show)
 
 -- TODO these methods do not consider the case where there is not enough market to complete the order thus not all of input is spent for output
 -- TODO figure out how to include fees here
@@ -215,7 +222,7 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   getOrders _ = return []
 
   -- | buys `t1` for `t2` tokens OR sells `t1` for `t2` tokens
-  order :: (MonadExchange m) => Proxy (t1,t2,e) -> OrderType -> Amount t1 -> Amount t2 -> ExchangeT e m (Order t1 t2 e)
+  order :: (MonadExchange m) => Proxy (t1,t2,e) -> OrderFlex -> OrderType -> Amount t1 -> Amount t2 -> ExchangeT e m (Order t1 t2 e)
 
   -- | returns the status of an order
   getStatus :: (MonadExchange m) => Proxy (t1,t2,e) -> Order t1 t2 e -> ExchangeT e m OrderStatus

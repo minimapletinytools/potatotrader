@@ -42,8 +42,8 @@ instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1
   getOrders _ = fmap ReverseOrder <$> getOrders (Proxy :: Proxy (t1,t2,e))
   -- | converts buy/sell orders into sell/buy orders in the original exchange
   -- TODO check work
-  order :: (MonadExchange m) => Proxy (t2,t1,ReverseExchangePair t2 t1 e) -> OrderType -> Amount t2 -> Amount t1 -> ExchangeT e m (ReverseOrder (Order t1 t2 e))
-  order _ ot t2 t1 = ReverseOrder <$> order (Proxy :: Proxy (t1,t2,e)) nt t1 t2 where
+  order :: (MonadExchange m) => Proxy (t2,t1,ReverseExchangePair t2 t1 e) -> OrderFlex -> OrderType -> Amount t2 -> Amount t1 -> ExchangeT e m (ReverseOrder (Order t1 t2 e))
+  order _ ofl ot t2 t1 = ReverseOrder <$> order (Proxy :: Proxy (t1,t2,e)) ofl nt t1 t2 where
     nt = if ot == Buy then Sell else Buy
   -- TODO pretty sure nothing needs to be done to returned OrderStatus but double check...
   getStatus _ (ReverseOrder o) = getStatus (Proxy :: Proxy (t1,t2,e)) o
