@@ -76,19 +76,14 @@ type family GetTokenType t n where
 
 -- | class for on chain tokens
 -- includes both base tokens and ERC20 tokens
-class (Token t, Network n) => ChainToken (isbase :: Bool) t n | t n -> isbase where
+class (Token t, Network n) => ChainToken t n where
   tokenAddress :: Proxy(t,n) -> Maybe Address
-
-
--- | base tokens do not have ERC20 contract addresses
-instance (Token bt, Network bt) => ChainToken 'True bt bt where
   tokenAddress _ = Nothing
 
-instance ChainToken 'False USDT ThunderCoreMain where
+instance ChainToken USDT ThunderCoreMain where
   tokenAddress _ = Just "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
 
--- TODO pretty sure I did the isbase thing wrong, i don't think it's necessary to specify the type when calling..... look it up again...
-class (ChainToken (GetTokenType t1 n) t1 n, ChainToken (GetTokenType t2 n) t2 n) => Uniswap (stype :: SwapType) t1 t2 n | t1 t2 n -> stype where
+class (ChainToken t1 n, ChainToken t2 n) => Uniswap (stype :: SwapType) t1 t2 n | t1 t2 n -> stype where
   -- |
   -- exchanges t1 for t2 where input amount (t1) is fixed
   -- TODO remove chainid url and token arguments, no longer needed
@@ -96,15 +91,15 @@ class (ChainToken (GetTokenType t1 n) t1 n, ChainToken (GetTokenType t2 n) t2 n)
   -- TODO rename this to titjSwapInput since we frequently switch ti and tj around
   t1t2SwapInput :: forall ex m. (MonadExchange m, Exception ex) => Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> ExchangeT (OnChain n) m (Either ex TxReceipt)
 
-instance (GetSwapType t1 t2 n~'EthToToken, ChainToken 'True t1 n, ChainToken 'False t2 n) => Uniswap 'EthToToken t1 t2 n where
+instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'EthToToken t1 t2 n where
   t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
     Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
-instance (GetSwapType t1 t2 n~'TokenToEth, ChainToken 'False t1 n, ChainToken 'True t2 n) => Uniswap 'TokenToEth t1 t2 n where
+instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'TokenToEth t1 t2 n where
   t1t2SwapInput _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
     Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2)
 
-class (ChainToken (GetTokenType t1 n) t1 n, ChainToken (GetTokenType t2 n) t2 n) => UniswapNetwork t1 t2 n where
+class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
 
 instance UniswapNetwork TT USDT ThunderCoreMain where
@@ -130,19 +125,14 @@ data OnChainOrder = OnChainOrder {
   receipt :: TxReceipt
 }
 
-instance (ChainToken 'True t n) => ExchangeToken t (OnChain n) where
+-- | sadly, to avoid too many floating proxy types to disambiguate constraints, which get balance method to use is determined at run time
+instance (ChainToken t n) => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
-       Just _ -> throwM $ AssertionFailed "base token should not have contract address"
+       Just _ -> liftIO $ Amount <$> Q.getTokenBalance url addr
        Nothing   -> liftIO $ do
          b <- Amount <$> Q.getBalance url
          return $ max 0 (b - minBalanceForGas (Proxy :: Proxy n))
-
-instance (ChainToken 'False t n) => ExchangeToken t (OnChain n) where
- getBalance _ = let url = rpc (Proxy :: Proxy n) in
-    case tokenAddress (Proxy :: Proxy (t,n)) of
-      Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
-      Nothing   -> throwM $ AssertionFailed "ERC20 should have contract address"
 
 type ExchangePairConstraint t1 t2 n = (
   Uniswap (GetSwapType t1 t2 n) t1 t2 n,
