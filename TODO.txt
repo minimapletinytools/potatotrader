@@ -1,8 +1,8 @@
 :: TODO TMRW::
+-add routine that runs arbitrage every now and then
 DONE-check that it actually worked ^
 DONE-add < 0 bounds into arbitrage
--add logging to arbitrage
--add routine that runs arbitrage every now and then
+DONE-add logging to arbitrage
 DONE-force exchange rate on uniswap and see if that changes profit
 DONE-add tx fees to Chain exchange
 DONE-fix the order pricing issue in Bilaxy.Exchange (using avg price, not lowest/highest price)
@@ -31,6 +31,14 @@ IGNORE-write tests to ascertain units and exchange rate stuff is done correctly
 - add mock interfaces for all IO monad calls for testing instead of actually querying exchanges...
 
 :: TEST DATA ::
+
+::1-14 3:30pm::
+"BEGIN ARBITRAGE: 2020-01-14 23:37:37.422751 UTC"
+"BALANCES: (380013.7761272988,179.405858,762069.18,3753.612988)"
+"RAN PROFIT t1:t2:t1 from e1 to e2: (15942.337936092443,109.435436,16163.474839169621)"
+"ACTUAL PROFIT: 221.1369030771807"
+"END ARBITRAGE: 2020-01-14 23:37:42.253013 UTC"
+
 ::1-14 12:30pm::
 BALANCES: (49999.36966287978,294.748315,767769.18,3713.690188)
 PROFITS: (5699.91839232,28.39995214106202,1.5999798292121528,-4.808982709917929e-2)

@@ -24,6 +24,7 @@ import           Control.Parallel.Strategies
 import           Data.Proxy
 import           Data.Semigroup
 import qualified Data.Text                   as T
+import           Data.Time.Clock
 import           Potato.CryptoTrader.Helpers
 import           Potato.CryptoTrader.Types
 
@@ -50,6 +51,12 @@ instance Semigroup ArbitrageLogs where
   (<>) = const
 instance Monoid ArbitrageLogs where
   mempty = ArbitrageLogs
+
+tellShow :: (Show a, MonadWriter [T.Text] m) => a -> m ()
+tellShow x = tell [T.pack (show x)]
+
+tellString :: (MonadWriter [T.Text] m) => String -> m ()
+tellString s = tell [T.pack s]
 
 -- | monad type used for arbitrage which allows operating on two exchanges at the same time
 type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
@@ -84,6 +91,9 @@ arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWri
   -> ExchangePairT e1 e2 m ()
 arbitrage _ = do
 
+  startTime <- liftIO getCurrentTime
+  tellString $ "BEGIN ARBITRAGE: " ++ show startTime
+
   -- query and cancel all orders
   qncresult <- try $ do
     let
@@ -92,8 +102,8 @@ arbitrage _ = do
     lifte1 (cancelAllOrders pe1)
     lifte2 (cancelAllOrders pe2)
   case qncresult of
-    -- TODO log and error and restart
-    Left (SomeException e) -> return ()
+    Left (SomeException e) -> do
+      tellString $ "exception when cancelling orders: " ++ show e
     Right _                -> return ()
 
   -- query balances
@@ -104,11 +114,14 @@ arbitrage _ = do
     t2e2 <- lifte2 $ getBalance (Proxy :: Proxy (t2, e2))
     return (t1e1, t2e1, t1e2, t2e2)
   (b_t1e1, b_t2e1, b_t1e2, b_t2e2) <- case gbresult of
-    -- TODO log and error and restart
-    Left (SomeException e) -> return (0,0,0,0)
+    Left (SomeException e) -> do
+      tellString $ "exception when querying balances: " ++ show e
+      throwM e
+      --return (0,0,0,0)
     Right r                -> return r
 
-  trace ("BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)) $ return ()
+  tellString $ "BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)
+  --trace ("BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)) $ return ()
 
   -- query exchange rate
   erresult <- try $ do
@@ -116,8 +129,9 @@ arbitrage _ = do
     exchRate2 <- lifte2 $ getExchangeRate (Proxy :: Proxy (t1,t2,e2))
     return (exchRate1, exchRate2)
   (exchRate1, exchRate2) <- case erresult of
-    -- TODO log and error and restart
-    Left (SomeException e) -> undefined
+    Left (SomeException e) -> do
+      tellString $ "exception when querying exchange rate: " ++ show e
+      throwM e
     Right r                -> return r
 
   let
@@ -127,7 +141,7 @@ arbitrage _ = do
     buyt1_e2 = buyt1 exchRate2
 
   case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
-    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then return () else do
+    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then tellString "NO ARBITRAGE" else do
       let
         out_t2e2 = sellt1_e2 in_t1e2
         in_t2e1 = out_t2e2
@@ -137,8 +151,10 @@ arbitrage _ = do
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
       -- sell t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
-      trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
-    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then return () else do
+      tellString $ "RAN PROFIT t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)
+      tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e1
+      --trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
+    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then tellString "NO ARBITRAGE" else do
       let
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
@@ -147,9 +163,12 @@ arbitrage _ = do
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
       -- buy t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
-      trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
+      tellString $ "RAN PROFIT t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)
+      tellString $ "ACTUAL PROFIT: " ++ show (toStdDenom out_profit_t1e2)
+      --trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
 
-  return ()
+  endTime <- liftIO getCurrentTime
+  tellString $ "END ARBITRAGE: " ++ show endTime
 
 
 
@@ -181,7 +200,7 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
   re1@(in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
   re2@(in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
   r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
-    if out_t1e1 > out_t1e2 then Left re2 else Right re1
+    if out_t1e1 > out_t1e2 then Left re1 else Right re2
 
   -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
   --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2

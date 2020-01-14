@@ -42,5 +42,5 @@ tests = hspec $
       fromHUnitTest test_getBalance
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
-    describe "getAddress" $
-      fromHUnitTest test_getAddress
+    --describe "getAddress" $
+--      fromHUnitTest test_getAddress

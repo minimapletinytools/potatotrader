@@ -13,6 +13,7 @@ import           Control.Monad.Reader
 import qualified Control.Monad.Trans                  as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
+import qualified Data.Text                            as T
 import           Potato.CryptoTrader.Arbitrage
 import           Potato.CryptoTrader.Exchanges.Bilaxy
 import           Potato.CryptoTrader.Exchanges.Chain
@@ -32,8 +33,8 @@ testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),nilKey))
     arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
-  rslt <- runWriterT $ flip runReaderT ctx $ arb
-  print rslt -- force rslt
+  (_,logs) <- runWriterT $ flip runReaderT ctx arb
+  mapM_ (print . T.unpack) logs
   return ()
 
 
