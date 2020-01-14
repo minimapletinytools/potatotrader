@@ -133,9 +133,9 @@ arbitrage _ = do
         in_t2e1 = out_t2e2
         out_t1e1 = buyt1_e1 in_t2e1
       -- buy t1 on e1
-      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Buy out_t1e1 in_t2e1
+      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
       -- sell t1 on e2
-      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Sell in_t1e2 out_t2e2
+      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
       trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
     Right in_t1e1 -> do
       let
@@ -143,9 +143,9 @@ arbitrage _ = do
         in_t2e2 = out_t2e1
         out_t1e2 = buyt1_e2 in_t2e2
       -- sell t1 on e1
-      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Sell in_t1e1 out_t2e1
+      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
       -- buy t1 on e2
-      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Buy out_t1e2 in_t2e2
+      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
       trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
 
   return ()

@@ -1,12 +1,30 @@
+
+BALANCES: (49999.36966287978,294.748315,767769.18,3713.690188)
+"querying (priv=False):\nRequest {\n  host                 = \"api.bilaxy.com\"\n  port                 = 443\n  secure               = True\n  requestHeaders       = []\n  path                 = \"/v1/depth\"\n  queryString          = \"?symbol=151&type=1\"\n  method               = \"GET\"\n  proxy                = Nothing\n  rawBody              = False\n  redirectCount        = 10\n  responseTimeout      = ResponseTimeoutDefault\n  requestVersion       = HTTP/1.1\n}\n"
+"response status code: 200"
+PROFITS: (5699.91839232,28.39995214106202,1.5999798292121528,-4.808982709917929e-2)
+selling 39907257 tokens for 5441.902427238009 ether time 1579033624
+"querying (priv=False):\nRequest {\n  host                 = \"api.bilaxy.com\"\n  port                 = 443\n  secure               = True\n  requestHeaders       = []\n  path                 = \"/v1/depth\"\n  queryString          = \"?symbol=151&type=1\"\n  method               = \"GET\"\n  proxy                = Nothing\n  rawBody              = False\n  redirectCount        = 10\n  responseTimeout      = ResponseTimeoutDefault\n  requestVersion       = HTTP/1.1\n}\n"
+"response status code: 200"
+"querying (priv=True):\nRequest {\n  host                 = \"api.bilaxy.com\"\n  port                 = 443\n  secure               = True\n  requestHeaders       = []\n  path                 = \"/v1/trade\"\n  queryString          = \"?symbol=151&amount=5700&price=0.00700&type=sell&key=a9e9b435cb4184145ba78e134ac87a182&sign=6f7558905eb4e8ca0f18b1d04ec4061584b782a5\"\n  method               = \"POST\"\n  proxy                = Nothing\n  rawBody              = False\n  redirectCount        = 10\n  responseTimeout      = ResponseTimeoutDefault\n  requestVersion       = HTTP/1.1\n}\n"
+"response status code: 200"
+t1:t2:t1 from e2 to e1: (5699.91839232,39.907257,5728.318344461063)
+
+
 :: TODO TMRW::
+-check that it actually worked ^
+-add < 0 bounds into arbitrage
+-add logging to arbitrage
+-add routine that runs arbitrage every now and then
+DONE-force exchange rate on uniswap and see if that changes profit
 DONE-add tx fees to Chain exchange
 DONE-fix the order pricing issue in Bilaxy.Exchange (using avg price, not lowest/highest price)
   -it would actually be best if it submit several orders instead of 1 at the lowest/highest price for safety
--add test cases for all the chain query stuff D:
-  DONE-merge testfixture branch
 
 
 ::TODO::
+-add test cases for all the chain query stuff D:
+  DONE-merge testfixture branch
 -fix decimal conversion in bilaxy exchange when posting orders
 -test flipExchange
 DONE-reorg to give everything a package name
