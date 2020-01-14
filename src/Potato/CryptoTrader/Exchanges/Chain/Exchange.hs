@@ -27,35 +27,29 @@ import           Network.Ethereum.Api.Types                (TxReceipt (..))
 import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
 import           Potato.CryptoTrader.Types
 
-
-uniswapTxFee :: Amount TT
-uniswapTxFee = Amount (floor 4.7878e14)
-
--- network
--- TODO add a basetoken type parameter to this
--- or maybe simply change network to be the base token
-class Network n where
-  networkName :: Proxy n -> String
-  rpc :: Proxy n -> String
-  chainId :: Proxy n -> Integer
+-- | the network assosciated with a base token
+class (Token t) => Network t where
+  networkName :: Proxy t -> String
+  rpc :: Proxy t -> String
+  chainId :: Proxy t -> Integer
   -- | minimum balance in the base token suggested to pay for transaction fees
-  minBalanceForGas :: Proxy n -> Integer
+  minBalanceForGas :: Proxy t -> Amount t
 
-data ThunderCoreMain
-data EthereumMain
+type ThunderCoreMain = TT
+type EthereumMain = ETH
 
-instance Network ThunderCoreMain where
+instance Network TT where
   networkName _ = "ThunderCore mainnet"
   rpc _ = "https://mainnet-rpc.thundercore.com"
   chainId _ = 108
-  minBalanceForGas _ = 200000 * floor 1e10
+  minBalanceForGas _ = Amount $ 200000 * floor 1e10
 
-instance Network EthereumMain where
+instance Network ETH where
   networkName _ = "Ethereum mainnet"
   -- my private RPC url -__- don't use
   rpc _ = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
   chainId _ = 1
-  minBalanceForGas _ = 200000 * floor 1e10
+  minBalanceForGas _ = Amount $ 200000 * floor 1e10
 
 -- helpers
 type ChainCtx = ((),())
@@ -118,15 +112,15 @@ data OnChainOrder = OnChainOrder {
   receipt :: TxReceipt
 }
 
-instance ChainToken t n => ExchangeToken t (OnChain n) where
+instance (ChainToken t n, t~n) => ExchangeToken t (OnChain n) where
   getBalance _ = let url = rpc (Proxy :: Proxy n) in
      case tokenAddress (Proxy :: Proxy (t,n)) of
        -- substract away 200k gwei (or whatever) to
        -- TODO make this abstract
        Just addr -> liftIO $ Amount <$> Q.getTokenBalance url addr
        Nothing   -> liftIO $ do
-         b <- Q.getBalance url
-         return . Amount $ max 0 (b - minBalanceForGas (Proxy :: Proxy n))
+         b <- Amount <$> Q.getBalance url
+         return $ max 0 (b - minBalanceForGas (Proxy :: Proxy n))
 
 type ExchangePairConstraint t1 t2 n = (
   Uniswap (BaseToken t1) t1 t2 n,
