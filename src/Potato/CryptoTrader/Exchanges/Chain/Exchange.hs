@@ -1,4 +1,4 @@
---{-# LANGUAGE AllowAmbiguousTypes   #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -9,6 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE FunctionalDependencies  #-}
 
 
 module Potato.CryptoTrader.Exchanges.Chain.Exchange (
@@ -71,23 +72,34 @@ type family BaseToken t where
   BaseToken TT = 'True
   BaseToken USDT = 'False
 
--- TODO pretty sure I did the isbase thing wrong, i don't think it's necessary to specify the type when calling..... look it up again...
-class (ChainToken t1 n, ChainToken t2 n) => Uniswap (isbase :: Bool) t1 t2 n where
+class (UniswapNetwork t1 t2 n) => Uniswap (isbase :: Bool) t1 t2 n | t1 n -> isbase where
   -- |
   -- exchanges t1 for t2 where input amount (t1) is fixed
   -- TODO remove chainid url and token arguments, no longer needed
   -- not sure why Proxy (isbase,n) doesn't work...
   -- TODO rename this to titjSwapInput since we frequently switch ti and tj around
-  t1t2SwapInput :: forall ex m. (MonadExchange m, Exception ex) => Proxy isbase -> Proxy n -> String -> Integer -> Address -> Amount t1 -> Amount t2 -> ExchangeT (OnChain n) m (Either ex TxReceipt)
+  t1t2SwapInput :: forall ex m. (MonadExchange m, Exception ex) => Amount t1 -> Amount t2 -> ExchangeT (OnChain n) m (Either ex TxReceipt)
 
-instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'True t1 t2 n where
-  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
-    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
+instance (UniswapNetwork t1 t2 n) => Uniswap 'True t1 t2 n where
+  t1t2SwapInput (Amount input_t1) (Amount min_t2) = liftIO . try $ do
+    let
+      nproxy = Proxy :: Proxy (n)
+      pproxy = Proxy :: Proxy (t1,t2,n)
+      url = nproxy
+      cid = nproxy
+      addr = uniswapAddress pproxy
+      min_t2' = floor . (*0.95) . fromIntegral $ min_t2
     Q.txEthToTokenSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
 
-instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'False t1 t2 n where
-  t1t2SwapInput _ _ url cid addr (Amount input_t1) (Amount min_t2) = liftIO . try $ do
-    let min_t2' = floor . (*0.95) . fromIntegral $ min_t2
+instance (UniswapNetwork t1 t2 n) => Uniswap 'False t1 t2 n where
+  t1t2SwapInput (Amount input_t1) (Amount min_t2) = liftIO . try $ do
+    let
+      nproxy = Proxy :: Proxy (n)
+      pproxy = Proxy :: Proxy (t1,t2,n)
+      url = nproxy
+      cid = nproxy
+      addr = uniswapAddress pproxy
+      min_t2' = floor . (*0.95) . fromIntegral $ min_t2
     Q.txTokenToEthSwapInput url cid addr (fromIntegral input_t1) (fromIntegral min_t2')
 
 class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
