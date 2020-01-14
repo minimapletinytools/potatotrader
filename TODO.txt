@@ -1,6 +1,6 @@
 :: TODO TMRW::
 DONE-check that it actually worked ^
--add < 0 bounds into arbitrage
+DONE-add < 0 bounds into arbitrage
 -add logging to arbitrage
 -add routine that runs arbitrage every now and then
 DONE-force exchange rate on uniswap and see if that changes profit

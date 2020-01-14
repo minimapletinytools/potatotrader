@@ -127,17 +127,18 @@ arbitrage _ = do
     buyt1_e2 = buyt1 exchRate2
 
   case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
-    Left in_t1e2 -> do
+    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then return () else do
       let
         out_t2e2 = sellt1_e2 in_t1e2
         in_t2e1 = out_t2e2
         out_t1e1 = buyt1_e1 in_t2e1
+
       -- buy t1 on e1
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
       -- sell t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
       trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
-    Right in_t1e1 -> do
+    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then return () else do
       let
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
@@ -163,7 +164,7 @@ profit_t1 ::
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e1
   -> (Amount t1 -> Amount t2) -- ^ sellt1_e2
   -> (Amount t2 -> Amount t1) -- ^ buyt1_e2
-  -> Either (Amount t1) (Amount t1) -- ^ amount of t1 to arbitrage (Left means profit_t1e1 in_t1e2 and Right means on profit_t1e2 in_t1e1)
+  -> Either (Amount t1, Amount t1) (Amount t1, Amount t1) -- ^ amount of t1 to arbitrage and profit (Left means profit_t1e1 in_t1e2 and Right means on profit_t1e2 in_t1e1)
 profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 = r where
 
   -- construct profit functions
@@ -177,10 +178,10 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
   --res = trace (show pairs) $ [100,50,10,10]
   res = [100,50,10,10]
   --res = []
-  (in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
-  (in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
+  re1@(in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
+  re2@(in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
   r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
-    if out_t1e1 > out_t1e2 then Left in_t1e2 else Right in_t1e1
+    if out_t1e1 > out_t1e2 then Left re2 else Right re1
 
   -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)
   --profit_t2e2 = profit_tiek (Proxy :: Proxy (t2,t1,e2,e1)) buyt1_e1 sellt1_e2
@@ -234,15 +235,3 @@ searchMax (n':ns) (mn,mx) f = r where
   back = max mn (maxp-step)
   front = min mx (maxp+step)
   r = if step == 1 then (maxp, f maxp) else searchMax ns (back, front) f
-
--- DELETE
--- | runs profit_tiek
-maximize_profit_tiek ::
-  (Token ti, Token tj, Exchange el, Exchange ek)
-  => Proxy (ti, tj, el, ek) -- ^ proxy to help make function name "type bindings" explicit
-  -> Amount ti -- ^ ti balance on el
-  -> Amount tj -- ^ tj balance on ek
-  -> (Amount ti -> Amount tj) -- ^ sellti_el
-  -> (Amount tj -> Amount ti) -- ^ buyti_ek
-  -> (Amount ti, Amount tj) -- ^ amount ti to sell on el and amount tj to sell on ek
-maximize_profit_tiek b_tiel b_tjek sellti_el buyti_ek = undefined
