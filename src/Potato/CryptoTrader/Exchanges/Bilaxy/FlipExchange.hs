@@ -1,10 +1,13 @@
+-- TODO delete this file
+
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
 module Potato.CryptoTrader.Exchanges.Bilaxy.FlipExchange (
-  BilaxyFlip(..)
+  --BilaxyFlip(..)
 ) where
 
+{-
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.List                                     (mapAccumL)
@@ -79,3 +82,4 @@ instance (BilaxyFlipExchangePairConstraints t1 t2) => ExchangePair t1 t2 BilaxyF
   getExchangeRate _ = do
     er <- getExchangeRate (Proxy :: Proxy (t2,t1,Bilaxy))
     return $ ExchangeRate (buyt1 er) (sellt1 er) (flip $ variance er)
+-}

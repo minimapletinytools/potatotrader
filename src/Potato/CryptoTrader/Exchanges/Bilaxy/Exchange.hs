@@ -84,18 +84,30 @@ getDepthHelper pproxy = do
     bids = fixDecimals $ BA.bids depth
   return (asks, bids)
 
+
+-- TODO do a better implementation
+collapseOrderState :: [OrderState] -> OrderState
+collapseOrderState [] = Missing
+collapseOrderState [x] = x
+collapseOrderState (Pending:_) = Pending
+collapseOrderState (PartiallyExecuted:_) = PartiallyExecuted
+collapseOrderState (Cancelled:_:os) = Cancelled
+collapseOrderState (Missing:_) = Missing
+collapseOrderState (Executed:o:os) = collapseOrderState (o:Executed:os)
+
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
   type Order t1 t2 Bilaxy = [BilaxyOrderDetails]
 
-  -- TODO fix
-  getStatus _ (BilaxyOrderDetails oid) = do
+  -- | N.B. that there isn't a great way to interpret the status of a group of orders as a single order status
+  -- see implementation of
+  getStatus _ orders = OrderStatus . collapseOrderState <$> forM orders (\(BilaxyOrderDetails oid) -> do
     v <- liftIO $ try (getOrderInfo oid)
     case v of
-      Left (SomeException _) -> return $ OrderStatus Missing
-      Right oi               -> return . OrderStatus . BA.toOrderState . BA.oi_status $ oi
+      Left (SomeException _) -> return Missing
+      Right oi               -> return . BA.toOrderState . BA.oi_status $ oi)
 
   canCancel _ _ = True
 
@@ -105,7 +117,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
       Left (SomeException _) -> return False
       Right oi               -> return True)
 
-  -- | Note this function can't distinguish between orders made by different calls to order so it groups them all together as a single order
+  -- | N.B. this function can't distinguish between orders made by different calls to order so it groups them all together as a single order
   -- also note that this function returns orders not made through this library
   -- TODO fix this problem by using ExchangeCache
   getOrders _ = do
