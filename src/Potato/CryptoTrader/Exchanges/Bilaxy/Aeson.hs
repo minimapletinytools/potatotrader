@@ -102,6 +102,8 @@ instance FromJSON MarketOrder where
     let v = fmap parseJSON v'
     MarketOrder <$> (v ! 0) <*> (v ! 1) <*> (v ! 2)
 
+instance ToJSON MarketOrder where
+  toEncoding (MarketOrder p v t) = toEncoding [p,v,t]
 
 data MarketDepth = MarketDepth {
   asks   :: [MarketOrder]
@@ -109,6 +111,7 @@ data MarketDepth = MarketDepth {
 } deriving (Generic, Show)
 
 instance FromJSON MarketDepth
+instance ToJSON MarketDepth
 
 data OrderStatus = NotTradedYet | TradedPartly | TradedCompletely | Cancelled deriving (Show)
 instance FromJSON OrderStatus where

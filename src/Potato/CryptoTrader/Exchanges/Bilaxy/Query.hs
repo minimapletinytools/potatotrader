@@ -14,6 +14,8 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Query (
   postOrder,
   cancelOrder,
 
+  recordDepth,
+
   testDepth,
   testBalance,
   send
@@ -21,8 +23,9 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Query (
 
 where
 
+import Control.Concurrent
 import           Control.Exception
-import           Control.Monad                              (mapM_)
+import           Control.Monad
 import           Control.Monad.Catch
 import qualified Crypto.Hash.SHA1                           as SHA1
 import           Data.Aeson
@@ -34,7 +37,8 @@ import           Data.Double.Conversion.ByteString
 import qualified Data.Map                                   as M
 import           Data.Sort                                  (sort)
 import           Data.Text.Encoding
-import           Data.UnixTime
+import Data.Time
+--import           Data.UnixTime
 import           Debug.Trace                                (trace)
 import           Network.HTTP.Simple                        hiding (httpLBS)
 import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson as BA
@@ -228,6 +232,25 @@ cancelOrder oid = do
   kp <- readKeys
   BA.BilaxyResponse code (rid :: Int) <- makeRequest kp oldGateway "POST" "/v1/cancel_trade" [("id", showBS oid)]
   return ()
+
+
+
+-- | helper for generating fake test data
+recordDepth :: Int -> Int -> IO ()
+recordDepth pair seconds = do
+  depth <- replicateM seconds $ do
+    r <- getDepth pair
+    -- sleep for 1 second
+    threadDelay 1000000
+    return r
+  LBS.writeFile "bilaxy_depth_data.txt" (encode depth)
+
+
+
+
+
+
+
 
 -- TODO delete stuff below
 printResponse :: Response LBS.ByteString -> IO ()

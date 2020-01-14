@@ -16,5 +16,5 @@ module Potato.CryptoTrader.Exchanges.Bilaxy (
 
 import           Potato.CryptoTrader.Exchanges.Bilaxy.Exchange
 
--- temp stuff for testing
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Query    (testDepth)
+-- export some utility and testing methods
+import           Potato.CryptoTrader.Exchanges.Bilaxy.Query    (testDepth, recordDepth)
