@@ -1,5 +1,5 @@
 :: TODO TMRW::
--add tx fees to Chain exchange
+DONE-add tx fees to Chain exchange
 DONE-fix the order pricing issue in Bilaxy.Exchange (using avg price, not lowest/highest price)
   -it would actually be best if it submit several orders instead of 1 at the lowest/highest price for safety
 -add test cases for all the chain query stuff D:

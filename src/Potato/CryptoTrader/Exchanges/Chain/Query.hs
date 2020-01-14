@@ -225,9 +225,13 @@ noFee :: UniFee
 noFee = (1,1)
 
 -- | calcInputPrice is just uniswap getInputPrice
+calcInputPrice :: Integer -> Integer -> Integer -> Integer
+calcInputPrice = calcInputPrice_ defaultFee
+
+
 -- input_amount is amount being sold, returns amount bought
-calcInputPrice :: UniFee -> Integer -> Integer -> Integer -> Integer
-calcInputPrice (fn, fd) input_amount input_reserve output_reserve = numerator `div` denominator where
+calcInputPrice_ :: UniFee -> Integer -> Integer -> Integer -> Integer
+calcInputPrice_ (fn, fd) input_amount input_reserve output_reserve = numerator `div` denominator where
   input_amount_with_fee = input_amount * fn
   numerator = input_amount_with_fee * output_reserve
   denominator = (input_reserve * fd) + input_amount_with_fee
@@ -235,8 +239,8 @@ calcInputPrice (fn, fd) input_amount input_reserve output_reserve = numerator `d
 -- | calcFee returns the tx fee fee in output tokens
 calcFee :: UniFee -> Integer -> Integer -> Integer -> Integer
 calcFee fee input_amount input_reserve output_reserve =
-  calcInputPrice noFee input_amount input_reserve output_reserve
-  - calcInputPrice fee input_amount input_reserve output_reserve
+  calcInputPrice_ noFee input_amount input_reserve output_reserve
+  - calcInputPrice_ fee input_amount input_reserve output_reserve
 
 -- | noMarginalGain returns the amount of input tokens that should be bought
 -- such that marginal gain given to arbPrice exchange rate is zero
