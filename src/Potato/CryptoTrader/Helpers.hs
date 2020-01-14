@@ -39,7 +39,7 @@ make_toSellPerPricet1_from_bidst1 bids t1 = r where
 -- | takes a list of market order asks for t1 (in base denomination)
 -- (asks are people trying to sell t2 for t1)
 -- and creates the buyt1 function that shows how much t1 should be bought for a given quantity of t2
-make_buyPerPricet1_from_askst1 :: forall t1 t2. (Token t1, Token t2) =>
+make_buyPerPricet1_from_askst1 ::
   [(AmountRatio t2 t1, Amount t1)] -- ^ list of market bids
   -> Amount t2 -- ^ amount of t2 to be sold
   -> [(AmountRatio t2 t1, Amount t1)] -- ^ amount of t1 bought at each price
@@ -53,8 +53,10 @@ make_buyPerPricet1_from_askst1 asks t2 = r where
 
 -- | helper method to create sellt1 function in `ExchangeRate`
 -- see `make_toSellPerPricet1_from_bidst1`
+make_sellt1_from_bidst1 :: [(AmountRatio t2 t1, Amount t1)] -> Amount t1 -> Amount t2
 make_sellt1_from_bidst1 bids = sum . map (\(pt2t1, vt1) -> pt2t1 $:$* vt1) . make_toSellPerPricet1_from_bidst1 bids
 
 -- | helper method to create buyt1 function in `ExchangeRate`
 -- see `make_buyPerPricet1_from_askst1`
+make_buyt1_from_askst1 :: [(AmountRatio t2 t1, Amount t1)] -> Amount t2 -> Amount t1
 make_buyt1_from_askst1 asks = sum . map snd . make_buyPerPricet1_from_askst1 asks

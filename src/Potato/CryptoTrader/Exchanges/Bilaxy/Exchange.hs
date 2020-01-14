@@ -33,6 +33,13 @@ instance RealBilaxyPair TT USDT where
 -- | Bilaxy exchange type
 data Bilaxy
 
+-- | assumes bilaxy fee is fixed for all
+bilaxyFee :: FeeRatio t
+--bilaxyFee = FeeRatio 0.00075
+-- if paying with BIA
+bilaxyFee = FeeRatio 0.000375
+--bilaxyFee = FeeRatio 0.0
+
 -- TODO move to Cache.hs
 type BilaxyCache = ()
 
@@ -158,7 +165,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   getExchangeRate pproxy = do
     (asks, bids) <- getDepthHelper pproxy
     let
-      sellt1 = make_sellt1_from_bidst1 bids
-      buyt1 = make_buyt1_from_askst1 asks
+      sellt1 = applyFee bilaxyFee . make_sellt1_from_bidst1 bids
+      buyt1 = applyFee bilaxyFee . make_buyt1_from_askst1 asks
       variance = undefined
     return $ ExchangeRate sellt1 buyt1 variance

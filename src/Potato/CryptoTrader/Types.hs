@@ -8,6 +8,8 @@
 
 module Potato.CryptoTrader.Types (
   Amount(..),
+  FeeRatio(..),
+  applyFee,
   AmountRatio(..),
   makeRatio,
   ($:$*),
@@ -51,6 +53,13 @@ import           GHC.Generics
 newtype Amount t = Amount Integer
   deriving (Eq, Ord, Show, Read, Enum, Num, Integral, Real, Generic, NFData)
 
+-- | type safe representation of a transaction fee percent
+newtype FeeRatio t = FeeRatio Double
+  deriving (Eq, Ord, Show, Read, Enum, Num, Real, Fractional, RealFrac, Generic, NFData)
+
+applyFee :: FeeRatio t -> Amount t -> Amount t
+applyFee (FeeRatio f) = Amount . floor . ((1-f) *) . fromIntegral
+
 -- | type safe representation of a currency exchange ratio t1:t2 in its base (smallest) denomination
 newtype AmountRatio t1 t2 = AmountRatio Double
   deriving (Eq, Ord, Show, Read, Enum, Num, Real, Fractional, RealFrac, Generic, NFData)
@@ -82,14 +91,12 @@ data OrderType = Buy | Sell deriving (Eq, Show)
 -- `Flexible` gives flexibility to the order price
 data OrderFlex = Flexible | Rigid deriving (Eq, Show)
 
--- TODO these methods do not consider the case where there is not enough market to complete the order thus not all of input is spent for output
--- TODO figure out how to include fees here
--- | Data type that abstracts exchange rates as functions
--- The interface is likely to be upgraded in the future as thu current design is limited
+-- | Data type that abstracts exchange rates as functions.
+-- The interface is likely to be upgraded in the future as thu current design is limited.
 data ExchangeRate t1 t2 = ExchangeRate {
-  -- | sellt1 returns approx amount of t2 bought for input of t1
+  -- | sellt1 returns approx amount of t2 bought for input of t1 including fees
   sellt1     :: Amount t1 -> Amount t2
-  -- | buyt1 returns approx amount of t1 bought for input of t2
+  -- | buyt1 returns approx amount of t1 bought for input of t2 including fees
   , buyt1    :: Amount t2 -> Amount t1
   -- | variance returs the variance of the quantity |desired_t1/desired_t2 - actual_t1/actual_t2|
   -- does not distinguish between buy/sell
