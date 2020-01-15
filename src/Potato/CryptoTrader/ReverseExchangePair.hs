@@ -29,6 +29,9 @@ instance (ExchangeToken t2 e) => ExchangeToken t2 (ReverseExchangePair t2 t1 e) 
 -- | wrapper to indicate order type is reversed
 newtype ReverseOrder a = ReverseOrder a
 
+flipOrderType :: OrderType -> OrderType
+flipOrderType ot = if ot == Buy then Sell else Buy
+
 instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1 e) where
   pairName _ = pairName (Proxy :: Proxy (t1,t2,e))
   pairId _ = pairId (Proxy :: Proxy (t1,t2,e))
@@ -44,8 +47,10 @@ instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1
   -- TODO check work
   order :: (MonadExchange m) => Proxy (t2,t1,ReverseExchangePair t2 t1 e) -> OrderFlex -> OrderType -> Amount t2 -> Amount t1 -> ExchangeT e m (ReverseOrder (Order t1 t2 e))
   order _ ofl ot t2 t1 = ReverseOrder <$> order (Proxy :: Proxy (t1,t2,e)) ofl nt t1 t2 where
-    nt = if ot == Buy then Sell else Buy
+    nt = flipOrderType ot
   -- TODO pretty sure nothing needs to be done to returned OrderStatus but double check...
-  getStatus _ (ReverseOrder o) = getStatus (Proxy :: Proxy (t1,t2,e)) o
+  getStatus _ (ReverseOrder o) = do
+    OrderStatus os ot (t1a,t2a) <- getStatus (Proxy :: Proxy (t1,t2,e)) o
+    return $ OrderStatus os (flipOrderType ot) (t2a, t1a)
   --canCancel _ (ReverseOrder o) = canCancel (Proxy :: Proxy (t1,t2,e)) o
   cancel _ (ReverseOrder o) = cancel (Proxy :: Proxy (t1,t2,e)) o

@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments  #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
@@ -10,7 +11,7 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
 ) where
 
 import           Control.Exception
-import           Control.Monad                                (forM)
+import           Control.Monad                                (foldM, forM)
 import           Control.Monad.IO.Class
 import           Data.List                                    (mapAccumL)
 import           Data.Proxy
@@ -66,7 +67,7 @@ instance ExchangeToken USDT Bilaxy where
   getBalance = getBalanceHelper
 
 -- | `Order t1 t2 Bilaxy` type
-data BilaxyOrderDetails = BilaxyOrderDetails {
+data BilaxyOrderDetails t1 t2 = BilaxyOrderDetails {
   orderId :: Int
 } deriving (Show)
 
@@ -107,15 +108,39 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
   -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
-  type Order t1 t2 Bilaxy = [BilaxyOrderDetails]
+  type Order t1 t2 Bilaxy = [BilaxyOrderDetails t1 t2]
 
-  -- | N.B. that there isn't a great way to interpret the status of a group of orders as a single order status
-  -- see implementation of
-  getStatus _ orders = OrderStatus . collapseOrderState <$> forM orders (\(BilaxyOrderDetails oid) -> do
-    v <- liftIO $ try (getOrderInfo oid)
-    case v of
-      Left (SomeException _) -> return Missing
-      Right oi               -> return . BA.toOrderState . BA.oi_status $ oi)
+  getStatus _ orders = foldM foldOrders (defOrderStatus {orderState = Executed}) orders where
+    foldOrders osacc (BilaxyOrderDetails oid) = do
+      case orderState osacc of
+        -- something went wrong in our query, just abort
+        Missing -> return osacc
+        -- if one order is cancelled, we say the whole thing is (no PartiallyCancelled state)
+        Cancelled -> return osacc
+        -- Assuming orders are in order, one PartiallyExecuted or Pending order means the rest should be in pending state
+        -- TODO you can check and log an error if it's not the case
+        x | x == PartiallyExecuted || x == Pending -> return osacc
+        Executed -> do
+          v <- liftIO $ try (getOrderInfo oid)
+          case v of
+            -- something went wrong, just return the `Missing` state to indicate this
+            Left (SomeException _) -> return $ osacc {orderState = Missing}
+            Right oi               -> case BA.oi_status oi of
+              BA.Cancelled -> return $ osacc {orderState = Cancelled}
+              BA.NotTradedYet -> return $ osacc {orderState = Pending}
+              x | x == BA.TradedCompletely || x == BA.TradedPartly -> return $
+                osacc {
+                  orderState = BA.toOrderState (BA.oi_status oi)
+                  -- this should never change (except for the first one)
+                  -- TODO you can check and log an error if it's not the case
+                  , orderType = BA.oi_type oi
+                  , orderAmount = newAmount
+                } where
+                  -- TODO omg test this!!!
+                  (prevt1a,prevt2a) = orderAmount osacc
+                  dt1 = (BA.oi_amount oi - BA.oi_left_amount oi)
+                  dt2 = dt1 * BA.oi_price oi
+                  newAmount = (prevt1a + fromStdDenom dt1, prevt2a + fromStdDenom dt2)
 
   canCancel _ _ = True
 

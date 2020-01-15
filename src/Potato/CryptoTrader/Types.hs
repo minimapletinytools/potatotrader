@@ -33,6 +33,7 @@ module Potato.CryptoTrader.Types (
   ExchangePair(..),
   OrderState(..),
   OrderStatus(..),
+  defOrderStatus,
   Order,
 
   TT(..),
@@ -190,12 +191,17 @@ class (Token t, Exchange e) => ExchangeToken t e where
   getBalance :: (MonadExchange m) => Proxy (t,e) -> ExchangeT e m (Amount t)
 
 -- | the state of an order
-data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Show)
+data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing deriving (Eq, Show)
 
 -- | the status of an order
-data OrderStatus = OrderStatus {
-  orderState :: OrderState
+data OrderStatus t1 t2 = OrderStatus {
+  orderState    :: OrderState
+  , orderType   :: OrderType -- buy or sell t1 for t2
+  , orderAmount :: (Amount t1, Amount t2)
 }
+
+defOrderStatus :: OrderStatus t1 t2
+defOrderStatus = OrderStatus Missing Buy (0,0)
 
 -- | A class for tradeable token pairs on an exchange.
 -- All opreations of `ExchangePair t1 t2` are from the perspective of `t1`
@@ -235,7 +241,7 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   order :: (MonadExchange m) => Proxy (t1,t2,e) -> OrderFlex -> OrderType -> Amount t1 -> Amount t2 -> ExchangeT e m (Order t1 t2 e)
 
   -- | returns the status of an order
-  getStatus :: (MonadExchange m) => Proxy (t1,t2,e) -> Order t1 t2 e -> ExchangeT e m OrderStatus
+  getStatus :: (MonadExchange m) => Proxy (t1,t2,e) -> Order t1 t2 e -> ExchangeT e m (OrderStatus t1 t2)
 
   -- TODO DELETE
   -- | delete this because cancel will just return false if it can't be cancelled..

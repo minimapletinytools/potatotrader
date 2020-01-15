@@ -132,8 +132,12 @@ instance (Network n) => Exchange (OnChain n) where
   type ExchangeAccount (OnChain n) = ()
 
 -- Token Exchanges
-data OnChainOrder = OnChainOrder {
-  receipt :: TxReceipt
+data OnChainOrder t1 t2 = OnChainOrder {
+  receipt                   :: TxReceipt
+  , chainOrderType          :: OrderType
+  -- inputs to the swap function basically
+  -- note that the actualy min output amount is reduced in the `Flexible` order type case
+  , chainOrderDesiredAmount :: (Amount t1, Amount t2)
 }
 
 instance ChainToken t n => ExchangeToken t (OnChain n) where
@@ -152,14 +156,18 @@ type ExchangePairConstraint t1 t2 n = (
 instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
   pairId _ = uniswapAddress (Proxy :: Proxy(t1,t2,n))
 
-  type Order t1 t2 (OnChain n) = OnChainOrder
+  type Order t1 t2 (OnChain n) = OnChainOrder t1 t2
 
-  getStatus _ (OnChainOrder receipt) = do
+  getStatus _ (OnChainOrder receipt ot amt) = do
     let url = rpc (Proxy :: Proxy n)
     v <- liftIO $ try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
-      Left (SomeException _) -> return $ OrderStatus Missing
-      Right _                -> return $ OrderStatus Executed
+      Left (SomeException _) -> return $ defOrderStatus
+      -- TODO THIS IS INCORRECT
+      -- the correct way to do this is to store the transaction parameters in OnChainOrder
+      -- and then make a web3 call using the same input parameters at the block number in the recipt to obtain the output
+      -- you can do this using Network.Ethereum.Api.Eth.call method
+      Right _                -> return $ OrderStatus Executed ot amt
 
   -- TODO TEST
 
@@ -181,7 +189,7 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       Left (SomeException e) -> do
         liftIO $ print e
         return undefined
-      Right receipt          -> return $ OnChainOrder receipt
+      Right receipt          -> return $ OnChainOrder receipt ot (t1,t2)
 
   -- TODO test
   getExchangeRate pnproxy = do

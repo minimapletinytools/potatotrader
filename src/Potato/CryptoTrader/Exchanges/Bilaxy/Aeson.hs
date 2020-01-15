@@ -113,7 +113,7 @@ data MarketDepth = MarketDepth {
 instance FromJSON MarketDepth
 instance ToJSON MarketDepth
 
-data OrderStatus = NotTradedYet | TradedPartly | TradedCompletely | Cancelled deriving (Show)
+data OrderStatus = NotTradedYet | TradedPartly | TradedCompletely | Cancelled deriving (Eq, Show)
 instance FromJSON OrderStatus where
   parseJSON = withScientific "OrderStatus" $ \n -> return $ case n of
     1 -> NotTradedYet
@@ -137,6 +137,7 @@ data OrderInfo = OrderInfo {
   , oi_id          :: Int
   , oi_left_amount :: Double
   , oi_left_count  :: Double
+  , oi_type        :: T.OrderType
   , oi_status      :: OrderStatus
 } deriving (Generic, Show)
 
@@ -150,6 +151,8 @@ instance FromJSON OrderInfo where
     fId :: Int <- v .: "id"
     fLeft_amount :: String <- v .: "left_amount"
     fLeft_count :: String <- v .: "left_count"
+    fType :: String <- v .: "type"
+    -- TODO make instance FromJSON T.OrderType
     fStatus :: OrderStatus <- v .: "status"
     fSymbol :: Int <- lookupMany v ["symbo", "symbol"] -- typo in API
     return $ OrderInfo {
@@ -162,6 +165,7 @@ instance FromJSON OrderInfo where
       , oi_id = fId
       , oi_left_amount = read fLeft_amount
       , oi_left_count = read fLeft_count
+      , oi_type = if fType == "sell" then T.Sell else T.Buy
       , oi_status = fStatus
     }
 
