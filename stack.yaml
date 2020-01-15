@@ -37,7 +37,9 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+- synchronous-channels-0.2@sha256:b46c98ed4cbe5038d7ca0911e2c0c5fdae41f7bcfb1648c6f469d80c152ab4af,705
+
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

@@ -51,7 +51,10 @@ import           GHC.Generics
 
 -- | type safe representation of a currency amount in its base (smallest) denomination
 newtype Amount t = Amount Integer
-  deriving (Eq, Ord, Show, Read, Enum, Num, Integral, Real, Generic, NFData)
+  deriving (Eq, Ord, Read, Enum, Num, Integral, Real, Generic, NFData)
+
+instance (Token t) => Show (Amount t) where
+  show t = show (toStdDenom t) ++ " " ++ tokenName (Proxy :: Proxy t)
 
 -- | type safe representation of a transaction fee percent
 newtype FeeRatio t = FeeRatio Double

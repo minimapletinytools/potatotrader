@@ -110,7 +110,10 @@ instance (ChainToken t1 n, ChainToken t2 n) => Uniswap 'False t1 t2 n where
 class (ChainToken t1 n, ChainToken t2 n) => UniswapNetwork t1 t2 n where
   uniswapAddress :: Proxy (t1,t2,n) -> Address
 
+-- this seems a little unfortunate to me...
 instance UniswapNetwork TT USDT ThunderCoreMain where
+  uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
+instance UniswapNetwork USDT TT ThunderCoreMain where
   uniswapAddress _ = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
 
 getBalanceOf :: forall t n m. (MonadExchange m, ChainToken t n) => Proxy (t,n) -> Address -> ExchangeT (OnChain n) m (Amount t)

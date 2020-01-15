@@ -94,6 +94,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - bilaxypotato
+    - synchronous-channels
 
 tests:
   bilaxypotato-test:

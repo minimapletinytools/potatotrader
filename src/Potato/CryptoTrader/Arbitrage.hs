@@ -120,8 +120,8 @@ arbitrage _ = do
       --return (0,0,0,0)
     Right r                -> return r
 
-  tellString $ "BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)
-  --trace ("BALANCES: " ++ show (toStdDenom b_t1e1, toStdDenom b_t2e1, toStdDenom b_t1e2, toStdDenom b_t2e2)) $ return ()
+  tellString $ "BALANCES: " ++ show (b_t1e1, b_t2e1, b_t1e2, b_t2e2)
+  --trace ("BALANCES: " ++ show (b_t1e1, b_t2e1, b_t1e2, b_t2e2)) $ return ()
 
   -- query exchange rate
   erresult <- try $ do
@@ -151,9 +151,9 @@ arbitrage _ = do
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
       -- sell t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
-      tellString $ "RAN PROFIT t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)
+      tellString $ "RAN PROFIT t1:t2:t1 from e2 to e1: " ++ show (in_t1e2, out_t2e2, out_t1e1)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e1
-      --trace ("t1:t2:t1 from e2 to e1: " ++ show (toStdDenom in_t1e2, toStdDenom out_t2e2, toStdDenom out_t1e1)) $ return ()
+      --trace ("t1:t2:t1 from e2 to e1: " ++ show (in_t1e2, out_t2e2, out_t1e1)) $ return ()
     Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then tellString "NO ARBITRAGE" else do
       let
         out_t2e1 = sellt1_e1 in_t1e1
@@ -163,9 +163,9 @@ arbitrage _ = do
       --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
       -- buy t1 on e2
       --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
-      tellString $ "RAN PROFIT t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)
-      tellString $ "ACTUAL PROFIT: " ++ show (toStdDenom out_profit_t1e2)
-      --trace ("t1:t2:t1 from e1 to e2: " ++ show (toStdDenom in_t1e1, toStdDenom out_t2e1, toStdDenom out_t1e2)) $ return ()
+      tellString $ "RAN PROFIT t1:t2:t1 from e1 to e2: " ++ show (in_t1e1, out_t2e1, out_t1e2)
+      tellString $ "ACTUAL PROFIT: " ++ show (out_profit_t1e2)
+      --trace ("t1:t2:t1 from e1 to e2: " ++ show (in_t1e1, out_t2e1, out_t1e2)) $ return ()
 
   endTime <- liftIO getCurrentTime
   tellString $ "END ARBITRAGE: " ++ show endTime
@@ -193,13 +193,13 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
 
   -- always profit on t1 for now
   --domain = [Amount (floor (x/10.0 * fromIntegral b_t1e1)) | x <- [1.0..10.0::Double]]
-  --pairs = zip (map toStdDenom domain) (map (toStdDenom . profit_t1e2) domain)
+  --pairs = zip (map domain) (map (. profit_t1e2) domain)
   --res = trace (show pairs) $ [100,50,10,10]
   res = [100,50,10,10]
   --res = []
   re1@(in_t1e2, out_t1e1) = searchMax res (0,b_t1e2) profit_t1e1
   re2@(in_t1e1, out_t1e2) = searchMax res (0,b_t1e1) profit_t1e2
-  r = trace ("PROFITS: " ++ show (toStdDenom in_t1e2, toStdDenom out_t1e1, toStdDenom in_t1e1, toStdDenom out_t1e2)) $
+  r = trace ("PROFITS: " ++ show (in_t1e2, out_t1e1, in_t1e1, out_t1e2)) $
     if out_t1e1 > out_t1e2 then Left re1 else Right re2
 
   -- TODO figure out conditions for profitting on t2 instead of t1 (to maximize arbitrage potential before more liquidity is needed in one exchange or the other)

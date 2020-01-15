@@ -49,6 +49,7 @@ import           Text.Printf
 
 -- | 🥔🥔🥔
 class Monad m => MonadPotatoDebug m where
+  -- this is messing up my bytestring output formatting D:
   consoleDebug :: (Show s) => s -> m ()
   consoleDebug s = trace (show s) $ return ()
 
