@@ -195,13 +195,14 @@ data OrderState = Pending | PartiallyExecuted | Executed | Cancelled | Missing d
 
 -- | the status of an order
 data OrderStatus t1 t2 = OrderStatus {
-  orderState    :: OrderState
-  , orderType   :: OrderType -- buy or sell t1 for t2
-  , orderAmount :: (Amount t1, Amount t2)
-}
+  orderState        :: OrderState
+  , orderType       :: OrderType -- buy or sell t1 for t2
+  , orderOrigAmount :: (Amount t1, Amount t2)
+  , orderExecAmount :: (Amount t1, Amount t2)
+} deriving (Show)
 
 defOrderStatus :: OrderStatus t1 t2
-defOrderStatus = OrderStatus Missing Buy (0,0)
+defOrderStatus = OrderStatus Missing Buy (0,0) (0,0)
 
 -- | A class for tradeable token pairs on an exchange.
 -- All opreations of `ExchangePair t1 t2` are from the perspective of `t1`

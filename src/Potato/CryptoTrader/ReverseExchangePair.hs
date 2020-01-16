@@ -8,6 +8,7 @@ module Potato.CryptoTrader.ReverseExchangePair (
 ) where
 
 import           Data.Proxy
+import           Data.Tuple                (swap)
 import           Potato.CryptoTrader.Types
 
 data ReverseExchangePair t2 t1 e = ReverseExchangePair
@@ -50,7 +51,7 @@ instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1
     nt = flipOrderType ot
   -- TODO pretty sure nothing needs to be done to returned OrderStatus but double check...
   getStatus _ (ReverseOrder o) = do
-    OrderStatus os ot (t1a,t2a) <- getStatus (Proxy :: Proxy (t1,t2,e)) o
-    return $ OrderStatus os (flipOrderType ot) (t2a, t1a)
+    OrderStatus os ot origA execA <- getStatus (Proxy :: Proxy (t1,t2,e)) o
+    return $ OrderStatus os (flipOrderType ot) (swap origA) (swap execA)
   --canCancel _ (ReverseOrder o) = canCancel (Proxy :: Proxy (t1,t2,e)) o
   cancel _ (ReverseOrder o) = cancel (Proxy :: Proxy (t1,t2,e)) o

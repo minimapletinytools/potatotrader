@@ -162,12 +162,13 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
     let url = rpc (Proxy :: Proxy n)
     v <- liftIO $ try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
-      Left (SomeException _) -> return $ defOrderStatus
-      -- TODO THIS IS INCORRECT
-      -- the correct way to do this is to store the transaction parameters in OnChainOrder
-      -- and then make a web3 call using the same input parameters at the block number in the recipt to obtain the output
-      -- you can do this using Network.Ethereum.Api.Eth.call method
-      Right _                -> return $ OrderStatus Executed ot amt
+      Left (SomeException _) -> return defOrderStatus
+      Right _                -> return $ OrderStatus Executed ot amt execAmt where
+        -- TODO THIS IS INCORRECT
+        -- the correct way to do this is to store the transaction parameters in OnChainOrder
+        -- and then make a web3 call using the same input parameters at the block number in the recipt to obtain the output
+        -- you can do this using Network.Ethereum.Api.Eth.call method
+        execAmt = amt
 
   -- TODO TEST
 

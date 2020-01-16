@@ -68,9 +68,15 @@ instance ExchangeToken USDT Bilaxy where
 
 -- | `Order t1 t2 Bilaxy` type
 data BilaxyOrderDetails t1 t2 = BilaxyOrderDetails {
-  orderId :: Int
+  orderId       :: Int
+  , priceVolume :: (AmountRatio t2 t1, Amount t1)
 } deriving (Show)
 
+data BilaxyOrder t1 t2 = BilaxyOrder {
+  bilaxyOrderDetails      :: [BilaxyOrderDetails t1 t2]
+  , bilaxyOrderType       :: OrderType
+  , bilaxyOrderOrigAmount :: (Amount t1, Amount t2)
+} deriving (Show)
 
 type BilaxyExchangePairConstraints t1 t2 = (RealBilaxyPair t1 t2, ExchangeToken t1 Bilaxy, ExchangeToken t2 Bilaxy)
 
@@ -104,14 +110,20 @@ collapseOrderState (Cancelled:_:os)      = Cancelled
 collapseOrderState (Missing:_)           = Missing
 collapseOrderState (Executed:o:os)       = collapseOrderState (o:Executed:os)
 
+
 instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
   pairId _ = getPairId (Proxy :: Proxy t1) (Proxy :: Proxy t2)
 
-  -- TODO finish... Could include exchange pair id but it's encoded in the type so idk :\
-  type Order t1 t2 Bilaxy = [BilaxyOrderDetails t1 t2]
+  type Order t1 t2 Bilaxy = BilaxyOrder t1 t2
 
-  getStatus _ orders = foldM foldOrders (defOrderStatus {orderState = Executed}) orders where
-    foldOrders osacc (BilaxyOrderDetails oid) = do
+  getStatus _ (BilaxyOrder boDetails boType boOrigAmount) = foldM foldOrders acc boDetails where
+    acc = OrderStatus {
+        orderState = Executed
+        , orderType = boType
+        , orderOrigAmount = boOrigAmount
+        , orderExecAmount = (0,0)
+      }
+    foldOrders osacc (BilaxyOrderDetails oid _) = do
       case orderState osacc of
         -- something went wrong in our query, just abort
         Missing -> return osacc
@@ -134,58 +146,77 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
                   -- this should never change (except for the first one)
                   -- TODO you can check and log an error if it's not the case
                   , orderType = BA.oi_type oi
-                  , orderAmount = newAmount
+                  , orderExecAmount = newAmount
                 } where
                   -- TODO omg test this!!!
-                  (prevt1a,prevt2a) = orderAmount osacc
-                  dt1 = (BA.oi_amount oi - BA.oi_left_amount oi)
+                  (prevt1a,prevt2a) = orderExecAmount osacc
+                  dt1 = (BA.oi_count oi - BA.oi_left_count oi)
                   dt2 = dt1 * BA.oi_price oi
                   newAmount = (prevt1a + fromStdDenom dt1, prevt2a + fromStdDenom dt2)
 
   canCancel _ _ = True
 
-  cancel _ orders = all id <$> forM orders (\(BilaxyOrderDetails oid) -> do
+  cancel _ (BilaxyOrder boDetails _ _) = all id <$> forM boDetails (\(BilaxyOrderDetails oid _) -> do
     v <- liftIO $ try (cancelOrder oid)
     case v of
       Left (SomeException _) -> return False
       Right oi               -> return True)
 
-  -- | N.B. this function can't distinguish between orders made by different calls to order so it groups them all together as a single order
-  -- also note that this function returns orders not made through this library
+  -- | N.B. this function does not know which orders were made by this library
+  -- instead it returns a list of all orders
   -- TODO fix this problem by using ExchangeCache
   getOrders _ = do
     orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
-    return $ [map (BilaxyOrderDetails . BA.oi_id) orders]
+    let
+      mapFn order = BilaxyOrder {
+          bilaxyOrderDetails = [BilaxyOrderDetails (BA.oi_id order) (price, volume)] :: [BilaxyOrderDetails t1 t2]
+          , bilaxyOrderType = BA.oi_type order
+          , bilaxyOrderOrigAmount = (at1,at2) :: (Amount t1, Amount t2)
+        } where
+          price = stdDenomToRatio (BA.oi_price order) :: AmountRatio t2 t1
+          volume = fromStdDenom (BA.oi_count order) :: Amount t1
+          (at1,at2) = (volume, price $:$* volume)
+          -- TODO just for testing
+          --dt1 = BA.oi_count order
+          --dt2 = dt1 * BA.oi_price order
+          --(at1',at2') = assert ((fromStdDenom dt1, fromStdDenom dt2) == (at1, at2)) (at1,at2)
+    return $ map mapFn orders
 
-  order pproxy ofl ot t1 t2 = do
+  order pproxy ofl ot amount_t1 amount_t2 = do
     (asks, bids) <- getDepthHelper pproxy
     let
       t1proxy = Proxy :: Proxy t1
       t2proxy = Proxy :: Proxy t2
-      t1d = fromInteger $ decimals (Proxy :: Proxy t1)
-      t2d = fromInteger $ decimals (Proxy :: Proxy t2)
       pair = pairId pproxy
     v <- case ofl of
       Rigid -> do
         let
-          amount_t1 = fromIntegral t1 / fromIntegral (decimals t1proxy)
-          amount_t2 = fromIntegral t2 / fromIntegral (decimals t2proxy)
-          price_t2 = amount_t2 / amount_t1
-        return <$> liftIO (try (postOrder pair amount_t1 price_t2 ot))
+          price_t2 = makeRatio amount_t2 amount_t1
+        r <- liftIO . try $ do
+          oid <- postOrder pair (toStdDenom amount_t1) (ratioToStdDenom price_t2) ot
+          return (oid, (price_t2, amount_t1))
+        return [r]
       Flexible -> do
         let
           pvpairs = case ot of
             -- buying t1 with t2
-            Buy  -> make_buyPerPricet1_from_askst1 asks t2
+            Buy  -> make_buyPerPricet1_from_askst1 asks amount_t2
             -- selling t1 for t2
-            Sell -> make_toSellPerPricet1_from_bidst1 bids t1
-          convertedPairs = (flip map) pvpairs $ \(pt2t1, vt1) -> (ratioToStdDenom pt2t1, toStdDenom vt1)
-        forM convertedPairs $ \(pt2t1, vt1) -> liftIO $ try (postOrder pair vt1 pt2t1 ot)
-    forM v $ \case
+            Sell -> make_toSellPerPricet1_from_bidst1 bids amount_t1
+        forM pvpairs $ \pv@(pt2t1, vt1) -> liftIO . try $ do
+          oid <- postOrder pair (toStdDenom vt1) (ratioToStdDenom pt2t1) ot
+          return (oid, pv)
+    boDetails <- forM v $ \case
       Left (SomeException e) -> do
         liftIO $ print e
-        return undefined
-      Right oid -> return $ BilaxyOrderDetails oid
+        undefined
+        --throwM e
+      Right (oid, pv) -> return $ BilaxyOrderDetails oid pv
+    return $ BilaxyOrder {
+        bilaxyOrderDetails = boDetails
+        , bilaxyOrderType = ot
+        , bilaxyOrderOrigAmount = (amount_t1,amount_t2)
+      }
 
   getExchangeRate pproxy = do
     (asks, bids) <- getDepthHelper pproxy

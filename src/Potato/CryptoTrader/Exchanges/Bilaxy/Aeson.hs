@@ -128,15 +128,18 @@ toOrderState TradedPartly     = T.PartiallyExecuted
 toOrderState TradedCompletely = T.Executed
 toOrderState Cancelled        = T.Cancelled
 
+-- e.g. for Bilaxy TT/USDT pair, TT is the security token, USDT is the base token
+-- price is in USDT
+-- amount refers to USDT, count refers to TT
 data OrderInfo = OrderInfo {
   oi_datetime      :: ()
-  , oi_amount      :: Double
+  , oi_amount      :: Double -- amount of base token to sell/buy
   , oi_price       :: Double
-  , oi_count       :: Double
+  , oi_count       :: Double -- count in security tokens to buy/sell
   , oi_symbol      :: Int
   , oi_id          :: Int
-  , oi_left_amount :: Double
-  , oi_left_count  :: Double
+  , oi_left_amount :: Double -- amount of order that is unexecuted
+  , oi_left_count  :: Double -- amount of base tokens that is unexecuted
   , oi_type        :: T.OrderType
   , oi_status      :: OrderStatus
 } deriving (Generic, Show)

@@ -60,13 +60,18 @@ test_getExchangeRate = TestCase $ flipReaderT bilaxyCtx $ do
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
-test_order_cancel :: Test
-test_order_cancel = TestCase $ flipReaderT bilaxyCtx $ do
+test_order_getStatus_cancel :: Test
+test_order_getStatus_cancel = TestCase $ flipReaderT bilaxyCtx $ do
   let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
   -- Rigid enforces price by what we set and not based on asks
   o <- order p Rigid Sell (fromStdDenom 1000) (fromStdDenom 123)
+  liftIO $ print o
+  orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy))
+  liftIO $ print orders
+  s <- getStatus p o
+  liftIO $ print s
   r <- cancel p o
-  liftIO $ print (o, r)
+  liftIO $ print r
 
 
 
@@ -84,4 +89,4 @@ tests = hspec $
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
     describe "order_cancel" $
-      fromHUnitTest test_order_cancel
+      fromHUnitTest test_order_getStatus_cancel
