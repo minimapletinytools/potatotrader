@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
 
-module Potato.CryptoTrader.Arbitrage.Tests (
+module Potato.CryptoTrader.MarketMaker.Tests (
   tests
 ) where
 
@@ -26,32 +26,17 @@ import           Test.HUnit
 type E1 = (OnChain ThunderCoreMain)
 type E2 = Bilaxy
 
-testArbitrage :: Test
-testArbitrage = TestCase $ do
-  let
+testMarketMaker :: Test
+testMarketMaker = TestCase $ do undefined
+  {-let
     ctx = (((),()),((),nilKey))
     arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2)) True
   (_,logs) <- runWriterT $ flip runReaderT ctx arb
   mapM_ (print . T.unpack) logs
-  return ()
-
-
-test_searchMax :: Spec
-test_searchMax = do
-  let
-    res1 = [10,10,10]
-    range1 = (0,100)
-    f1_1 x = x
-    f1_2 x = if x < 50 then x else 100-x
-  it "returns right most value for f x = x" $
-    (searchMax res1 range1 f1_1) `shouldBe` (100 :: Int, 100)
-  it "returns correct max value for ^ looking function" $
-    (searchMax res1 range1 f1_2) `shouldBe` (50 :: Int, 50)
+  return ()-}
 
 
 tests :: IO ()
 tests = hspec $ do
-  describe "Arbitrage" $
-    fromHUnitTest testArbitrage
-  describe "searchMax" $
-    test_searchMax
+  describe "MarketMaker" $
+    fromHUnitTest testMarketMaker

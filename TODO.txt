@@ -1,5 +1,12 @@
 :: TODO TMRW::
--add routine to actually check if orders got executed
+-add arbitrage parameters struct to arbitrage
+  -add min purchase amount threshold for arbitrage orders
+    -64 TT was definitely too little...
+-add tracking of total profits in arbitrage D:
+  -track starting balances so you can check your work when your done D:
+-shuffle your balances around so you can arbitrage for real
+-add warning for low liquidity in arbitrage D: ?
+DONE-add routine to actually check if orders got executed
   -add input/output amount to OrderState or whatever so you can get the amount traded
 -market maker :O
 DONE-test arbitrage on USDT/TT instead

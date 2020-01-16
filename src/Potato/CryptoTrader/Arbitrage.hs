@@ -141,6 +141,10 @@ arbitrage _ dryRun = do
     buyt1_e1 = buyt1 exchRate1
     sellt1_e2 = sellt1 exchRate2
     buyt1_e2 = buyt1 exchRate2
+    tokenOrderStr = tokenName (Proxy :: Proxy t1) ++ ":" ++ tokenName (Proxy :: Proxy t2) ++ ":" ++ tokenName (Proxy :: Proxy t1)
+    e1toe2Str = exchangeName (Proxy :: Proxy e1) ++ " to " ++ exchangeName (Proxy :: Proxy e2)
+    e2toe1Str = exchangeName (Proxy :: Proxy e2) ++ " to " ++ exchangeName (Proxy :: Proxy e1)
+
 
   rOrders <- case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
     Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then tellString "NO ARBITRAGE" >> return Nothing else do
@@ -148,7 +152,7 @@ arbitrage _ dryRun = do
         out_t2e2 = sellt1_e2 in_t1e2
         in_t2e1 = out_t2e2
         out_t1e1 = buyt1_e1 in_t2e1
-      tellString $ "RAN PROFIT t1:t2:t1 from e2 to e1: " ++ show (in_t1e2, out_t2e2, out_t1e1)
+      tellString $ "RAN PROFIT " ++ tokenOrderStr ++ " " ++ e2toe1Str ++ ": " ++ show (in_t1e2, out_t2e2, out_t1e1)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e1
 
       if dryRun then return Nothing else do
@@ -163,7 +167,7 @@ arbitrage _ dryRun = do
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
         out_t1e2 = buyt1_e2 in_t2e2
-      tellString $ "RAN PROFIT t1:t2:t1 from e1 to e2: " ++ show (in_t1e1, out_t2e1, out_t1e2)
+      tellString $ "RAN PROFIT " ++ tokenOrderStr ++ " " ++ e1toe2Str ++ ": " ++ show (in_t1e1, out_t2e1, out_t1e2)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e2
 
       if dryRun then return Nothing else do
