@@ -12,6 +12,7 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
 
 import           Control.Exception
 import           Control.Monad                                (foldM, forM)
+import           Control.Monad.Catch                          (throwM)
 import           Control.Monad.IO.Class
 import           Data.List                                    (mapAccumL)
 import           Data.Proxy
@@ -209,8 +210,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     boDetails <- forM v $ \case
       Left (SomeException e) -> do
         liftIO $ print e
-        undefined
-        --throwM e
+        throwM e
       Right (oid, pv) -> return $ BilaxyOrderDetails oid pv
     return $ BilaxyOrder {
         bilaxyOrderDetails = boDetails

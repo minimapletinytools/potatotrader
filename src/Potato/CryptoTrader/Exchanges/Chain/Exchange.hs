@@ -23,10 +23,10 @@ import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Proxy
 import           Data.Solidity.Prim.Address                (Address)
-import           Network.Ethereum.Api.Types                (TxReceipt (..))
+import           Network.Ethereum.Api.Types                (TxReceipt (..),
+                                                            txBlockHash)
 import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
 import           Potato.CryptoTrader.Types
-
 
 uniswapMaxGas :: Integer
 uniswapMaxGas = 100000 -- about twice as much gas as needed
@@ -163,12 +163,16 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
     v <- liftIO $ try (Q.getTransactionByHash url $ receiptTransactionHash receipt)
     case v of
       Left (SomeException _) -> return defOrderStatus
-      Right _                -> return $ OrderStatus Executed ot amt execAmt where
-        -- TODO THIS IS INCORRECT
-        -- the correct way to do this is to store the transaction parameters in OnChainOrder
-        -- and then make a web3 call using the same input parameters at the block number in the recipt to obtain the output
-        -- you can do this using Network.Ethereum.Api.Eth.call method
-        execAmt = amt
+      Right mtx             -> case mtx of
+        Nothing -> return $ OrderStatus Missing ot amt (0,0)
+        Just tx -> case txBlockHash tx of
+          Nothing -> return $ OrderStatus Pending ot amt (0,0)
+          Just _ -> return $ OrderStatus Executed ot amt execAmt where
+            -- TODO THIS IS INCORRECT
+            -- the correct way to do this is to store the transaction parameters in OnChainOrder
+            -- and then make a web3 call using the same input parameters at the block number in the recipt to obtain the output
+            -- you can do this using Network.Ethereum.Api.Eth.call method
+            execAmt = amt
 
   -- TODO TEST
 

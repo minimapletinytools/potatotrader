@@ -10,6 +10,8 @@ module Potato.CryptoTrader.Arbitrage (
   ArbitrageLogs,
   ArbitrageConstraints,
   arbitrage,
+  lifte1,
+  lifte2,
 
   -- exported for testing
   searchMax
@@ -86,10 +88,11 @@ lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
 -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
 --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
 --
-arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m)) =>
-  Proxy (t1, t2, e1, e2)
-  -> ExchangePairT e1 e2 m ()
-arbitrage _ = do
+arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
+  => Proxy (t1, t2, e1, e2)
+  -> Bool -- ^ if true, does not actually execute orders
+  -> ExchangePairT e1 e2 m (Maybe (Order t1 t2 e1, Order t1 t2 e2)) -- ^ returns tuple of arbitrage orders if made, Nothing otherwise
+arbitrage _ dryRun = do
 
   startTime <- liftIO getCurrentTime
   tellString $ "BEGIN ARBITRAGE: " ++ show startTime
@@ -102,8 +105,7 @@ arbitrage _ = do
     lifte1 (cancelAllOrders pe1)
     lifte2 (cancelAllOrders pe2)
   case qncresult of
-    Left (SomeException e) -> do
-      tellString $ "exception when cancelling orders: " ++ show e
+    Left (SomeException e) -> tellString $ "exception when cancelling orders: " ++ show e
     Right _                -> return ()
 
   -- query balances
@@ -140,35 +142,40 @@ arbitrage _ = do
     sellt1_e2 = sellt1 exchRate2
     buyt1_e2 = buyt1 exchRate2
 
-  case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
-    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then tellString "NO ARBITRAGE" else do
+  rOrders <- case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
+    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then tellString "NO ARBITRAGE" >> return Nothing else do
       let
         out_t2e2 = sellt1_e2 in_t1e2
         in_t2e1 = out_t2e2
         out_t1e1 = buyt1_e1 in_t2e1
-
-      -- buy t1 on e1
-      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
-      -- sell t1 on e2
-      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
       tellString $ "RAN PROFIT t1:t2:t1 from e2 to e1: " ++ show (in_t1e2, out_t2e2, out_t1e1)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e1
-      --trace ("t1:t2:t1 from e2 to e1: " ++ show (in_t1e2, out_t2e2, out_t1e1)) $ return ()
-    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then tellString "NO ARBITRAGE" else do
+
+      if dryRun then return Nothing else do
+        -- buy t1 on e1
+        eo1 <- lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
+        -- sell t1 on e2
+        eo2 <- lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
+        return $ Just (eo1, eo2)
+
+    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then tellString "NO ARBITRAGE" >> return Nothing else do
       let
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
         out_t1e2 = buyt1_e2 in_t2e2
-      -- sell t1 on e1
-      --lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
-      -- buy t1 on e2
-      --lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
       tellString $ "RAN PROFIT t1:t2:t1 from e1 to e2: " ++ show (in_t1e1, out_t2e1, out_t1e2)
-      tellString $ "ACTUAL PROFIT: " ++ show (out_profit_t1e2)
-      --trace ("t1:t2:t1 from e1 to e2: " ++ show (in_t1e1, out_t2e1, out_t1e2)) $ return ()
+      tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e2
+
+      if dryRun then return Nothing else do
+        -- sell t1 on e1
+        eo1 <- lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
+        -- buy t1 on e2
+        eo2 <- lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
+        return $ Just (eo1, eo2)
 
   endTime <- liftIO getCurrentTime
   tellString $ "END ARBITRAGE: " ++ show endTime
+  return rOrders
 
 
 

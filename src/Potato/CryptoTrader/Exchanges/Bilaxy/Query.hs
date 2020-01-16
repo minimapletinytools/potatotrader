@@ -138,13 +138,19 @@ makeRequest kp gateway method path params = do
   request <- if priv
     then generatePrivRequest gateway kp method path params
     else generateRequest gateway method path params
-  consoleDebug $ "querying (priv="++(show priv)++"):\n"++(show request)
   response <- httpLBS request
-  consoleDebug $ "response status code: " ++ show (getResponseStatusCode response)
+  --consoleDebug $ "querying (priv="++(show priv)++"):\n"++(show request)
+  --consoleDebug $ "response status code: " ++ show (getResponseStatusCode response)
   --printResponse response
   let x = eitherDecode $ getResponseBody response :: (FromJSON a) => Either String a
   case x of
-    Left v  -> throwM $ DecodeError $ "bilaxy decode error: " ++ show v
+    Left v  -> do
+      consoleDebug "&&&BILAXY REQUEST FAILED&&&"
+      consoleDebug $ "querying (priv="++(show priv)++"):\n"++(show request)
+      consoleDebug $ "response status code: " ++ show (getResponseStatusCode response)
+      consoleDebug $ "response: "
+      printResponse response
+      throwM $ DecodeError $ "bilaxy decode error: " ++ show v
     Right a -> return a
 
 -- | makeStandardResponseRequest calls makeRequest assuming the return type is wrapped in BA.BilaxyResponse

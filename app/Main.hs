@@ -17,16 +17,30 @@ import           Data.Proxy
 import qualified Data.Text                            as T
 
 
-type ArbMonad t1 t2= ExchangePairT t1 t2 (WriterT ArbitrageLogs IO)
-arbForever :: (ArbitrageConstraints t1 t2 e1 e2 (ArbMonad t1 t2)) => Proxy (t1,t2,e1,e2) -> Chan () -> ExchangeCtx e1 -> ExchangeCtx e2 -> IO ()
+type ArbMonad t1 t2 = ExchangePairT t1 t2 (WriterT ArbitrageLogs IO)
+arbForever :: forall t1 t2 e1 e2. (ArbitrageConstraints t1 t2 e1 e2 (ArbMonad t1 t2)) => Proxy (t1,t2,e1,e2) -> Chan () -> ExchangeCtx e1 -> ExchangeCtx e2 -> IO ()
 arbForever pproxy exitCh ctx1 ctx2 = do
   -- run arbitrage
+  putStrLn "=====BEGIN ARBITRAGE ROUND====="
   let
     ctx = (ctx1, ctx2)
-    arb = arbitrage pproxy
-  (_,logs) <- runWriterT $ flip runReaderT ctx arb
+    arb = arbitrage pproxy False
+  (oss,logs) <- runWriterT $ runReaderT arb ctx
   mapM_ (print . T.unpack) logs
-  putStrLn ""
+  osl <- flip runReaderT ctx $ do
+    case oss of
+      Nothing -> return Nothing
+      Just (eo1,eo2) -> do
+        osl1 <- lifte1 $ getStatus (Proxy :: Proxy (t1,t2,e1)) eo1
+        osl2 <- lifte2 $ getStatus (Proxy :: Proxy (t1,t2,e2)) eo2
+        return $ Just (osl1,osl2)
+  case osl of
+    Nothing -> print "no orders made"
+    Just (osl1,osl2) -> do
+      putStrLn "=====ORDER STATUS====="
+      print osl1
+      print osl2
+  putStrLn "=====END ARBITRAGE ROUND====="
 
   -- sleep for a minute
   threadDelay (floor 6e7)

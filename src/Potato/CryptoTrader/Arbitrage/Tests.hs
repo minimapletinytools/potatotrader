@@ -32,7 +32,7 @@ testArbitrage :: (ArbitrageConstraints TT USDT E1 E2 ArbMonad) =>
 testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),nilKey))
-    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2))
+    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2)) True
   (_,logs) <- runWriterT $ flip runReaderT ctx arb
   mapM_ (print . T.unpack) logs
   return ()

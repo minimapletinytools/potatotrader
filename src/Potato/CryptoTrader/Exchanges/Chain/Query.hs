@@ -41,6 +41,7 @@ import           Data.Solidity.Prim.Address
 import           Lens.Micro                        ((.~))
 import           Network.Ethereum.Account
 import           Network.Ethereum.Account.Internal
+-- import is qualified as we have many passthrough functions in this file with the same name
 import qualified Network.Ethereum.Api.Eth          as WEB3
 import           Network.Ethereum.Api.Provider
 import           Network.Ethereum.Api.Types        hiding (blockNumber)
@@ -132,12 +133,9 @@ getTokenBalanceOf url tAddr addr = do
 getTokenBalance :: String -> Address -> IO Integer
 getTokenBalance url tAddr = getAddress >>= getTokenBalanceOf url tAddr
 
-getTransactionByHash :: String -> BS.HexString -> IO Transaction
-getTransactionByHash url hash = do
-  r <- doweb3stuff url $ WEB3.getTransactionByHash hash
-  case r of
-    Nothing -> throwIO $ MissingError "tx not found"
-    Just tx -> return tx
+-- | passthrough to WEB3 `getTransactionByHash`
+getTransactionByHash :: String -> BS.HexString -> IO (Maybe Transaction)
+getTransactionByHash url hash = doweb3stuff url $ WEB3.getTransactionByHash hash
 
 -- | txEthToTokenSwapInput
 -- calls the following function:
