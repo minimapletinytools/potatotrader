@@ -34,7 +34,7 @@ import           Potato.CryptoTrader.Types
 import           Debug.Trace
 
 
-type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
+type CtxSingle e = (ExchangeData e, ExchangeAccount e)
 
 -- | context tuple for operations on two exchanges in the same monad
 -- newtype wrapper needed to avoid duplicate instances

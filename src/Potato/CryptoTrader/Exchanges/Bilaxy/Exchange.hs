@@ -5,7 +5,7 @@
 module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
   RealBilaxyPair(..),
   Bilaxy(..),
-  BilaxyCache,
+  BilaxyData,
   BilaxyCtx,
   BilaxyOrderDetails(..)
 ) where
@@ -43,15 +43,18 @@ bilaxyFee = AmountRatio 0.000375
 --bilaxyFee = AmountRatio 0.0
 
 -- TODO move to Cache.hs
-type BilaxyCache = ()
+type BilaxyData = ()
+--data BilaxyConfig = BilaxyConfig {}
+--type BilaxyCache = ()
+--type BilaxyData = (BilaxyConfig, BilaxyCache)
 
 -- | `ExchangeCtx Bilaxy` type used by `ExchangeT Bilaxy`
-type BilaxyCtx = (BilaxyCache, BilaxyAccount)
+type BilaxyCtx = (BilaxyData, BilaxyAccount)
 
 instance Exchange Bilaxy where
   exchangeName _ = "Bilaxy"
   type ExchangePairId Bilaxy = Int
-  type ExchangeCache Bilaxy = BilaxyCache
+  type ExchangeData Bilaxy = BilaxyData
   type ExchangeAccount Bilaxy = BilaxyAccount
 
 -- | exchange helper method for getting balance
@@ -165,7 +168,7 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
 
   -- | N.B. this function does not know which orders were made by this library
   -- instead it returns a list of all orders
-  -- TODO fix this problem by using ExchangeCache
+  -- TODO fix this problem by using ExchangeData
   getOrders _ = do
     orders <- liftIO $ getOrderList $ pairId (Proxy :: Proxy (t1,t2,Bilaxy))
     let

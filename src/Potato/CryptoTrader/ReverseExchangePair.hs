@@ -16,7 +16,7 @@ data ReverseExchangePair t2 t1 e = ReverseExchangePair
 instance (Exchange e) => Exchange (ReverseExchangePair t2 t1 e) where
   exchangeName _ = exchangeName (Proxy :: Proxy e)
   type ExchangePairId (ReverseExchangePair t2 t1 e) = ExchangePairId e
-  type ExchangeCache (ReverseExchangePair t2 t1 e) = ExchangeCache e
+  type ExchangeData (ReverseExchangePair t2 t1 e) = ExchangeData e
   type ExchangeAccount (ReverseExchangePair t2 t1 e) = ExchangeAccount e
 
 instance (ExchangeToken t1 e) => ExchangeToken t1 (ReverseExchangePair t2 t1 e) where

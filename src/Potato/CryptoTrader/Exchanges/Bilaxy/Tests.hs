@@ -13,7 +13,7 @@ import           Test.Hspec
 import           Test.Hspec.Contrib.HUnit                   (fromHUnitTest)
 import           Test.HUnit
 
-bilaxyCtx :: (BilaxyCache, BilaxyAccount)
+bilaxyCtx :: (BilaxyData, BilaxyAccount)
 bilaxyCtx = ((),nilKey)
 
 assertThrows :: (MonadIO m, C.MonadCatch m) => m a -> m ()

@@ -163,17 +163,12 @@ class Exchange e where
   type ExchangePairId e :: *
   -- TODO rename to ExchangeData, as we want it to store parameters and cache and whatever else makes sense to the user
   -- | intended to store mutable references for stuff like caches and connection analytics or whatever
-  type ExchangeCache e :: *
+  type ExchangeData e :: *
   -- TODO generalize account access to the exchange
   -- | private account access to exchange API
   type ExchangeAccount e :: *
 
-type ExchangeCtx e = (ExchangeCache e, ExchangeAccount e)
-
--- sadly this does not work due to "Illegal typ esynonym family application in instance" error
---instance ExchangeCtx e (ExchangeCache e, ExchangeAccount e) where
---  cache = fst
---  account = snd
+type ExchangeCtx e = (ExchangeData e, ExchangeAccount e)
 
 -- | this constraint kind is for the monad in which all our exchange operations take place in
 type MonadExchange m = (Monad m, MonadCatch m, MonadIO m)

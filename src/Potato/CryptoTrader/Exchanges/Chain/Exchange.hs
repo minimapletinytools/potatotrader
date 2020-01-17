@@ -1,9 +1,9 @@
 --{-# LANGUAGE AllowAmbiguousTypes   #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
@@ -62,7 +62,7 @@ instance Network EthereumMain where
 
 -- helpers
 type ChainCtx = ((),())
-  -- = (ExchangeCache (OnChain n), ExchangeAccount (OnChain n))
+  -- = (ExchangeData (OnChain n), ExchangeAccount (OnChain n))
   -- for all n
 
 class (Token t, Network n) => ChainToken t n where
@@ -125,7 +125,7 @@ data OnChain n
 instance (Network n) => Exchange (OnChain n) where
   exchangeName _ = networkName (Proxy :: Proxy n)
   type ExchangePairId (OnChain n) = Address
-  type ExchangeCache (OnChain n) = ()
+  type ExchangeData (OnChain n) = ()
   type ExchangeAccount (OnChain n) = ()
 
 -- Token Exchanges
