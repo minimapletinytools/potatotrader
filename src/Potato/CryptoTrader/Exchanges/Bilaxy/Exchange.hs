@@ -36,11 +36,11 @@ instance RealBilaxyPair TT USDT where
 data Bilaxy
 
 -- | assumes bilaxy fee is fixed for all
-bilaxyFee :: FeeRatio t
---bilaxyFee = FeeRatio 0.00075
+bilaxyFee :: AmountRatio t t
+--bilaxyFee = AmountRatio 0.00075
 -- if paying with BIA
-bilaxyFee = FeeRatio 0.000375
---bilaxyFee = FeeRatio 0.0
+bilaxyFee = AmountRatio 0.000375
+--bilaxyFee = AmountRatio 0.0
 
 -- TODO move to Cache.hs
 type BilaxyCache = ()

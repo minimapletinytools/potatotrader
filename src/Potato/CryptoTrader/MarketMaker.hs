@@ -5,8 +5,8 @@ module Potato.CryptoTrader.MarketMaker (
 ) where
 
 import           Control.Monad
+import           Control.Monad.Catch
 import           Control.Monad.IO.Class
-import Control.Monad.Catch
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import qualified Data.Text                   as T
@@ -39,7 +39,7 @@ tellString :: (MonadWriter [T.Text] m) => String -> m ()
 tellString s = tell [T.pack s]
 
 data MarketMakerParams t1 t2 = MarketMakerParams {
-    orderMinMax :: (Amount t1, Amount t2) -- the min and max amount of t1 we'll buy at once in market making
+    orderMinMax       :: (Amount t1, Amount t2) -- the min and max amount of t1 we'll buy at once in market making
     , minProfitMargin :: AmountRatio t1 t1
   }
 
@@ -105,8 +105,8 @@ marketMaker _ params = do
   -- only proceed if spread - fee is over our min profit margin
 
   let
-    slippage_t1 = FeeRatio 0.99 :: FeeRatio t1
-    slippage_t2 = FeeRatio 0.99 :: FeeRatio t2
+    slippage_t1 = AmountRatio 0.99 :: AmountRatio t1 t1
+    slippage_t2 = AmountRatio 0.99 :: AmountRatio t2 t2
     makerAmount = fromStdDenom 10 :: Amount t2 -- this is hardcoded to USDT units TODO make it a parameter
   -- assuming exchange rate function is monotically increasing/decreasing, mid point search to our slippage tolerance
   -- actual purchase amount is min of (t2 balance, makerAmount, slippage threshold)

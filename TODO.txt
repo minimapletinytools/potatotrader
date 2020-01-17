@@ -2,6 +2,7 @@
 -shuffle your balances around so you can arbitrage for real
 -add warning for low liquidity in arbitrage D: ?
 -market maker :O
+-rename ExchangeCache to ExchangeData
 -rename ArbitrageParams
 -rename CryptoTrader to just Trader
 

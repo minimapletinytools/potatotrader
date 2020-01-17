@@ -8,7 +8,6 @@
 
 module Potato.CryptoTrader.Types (
   Amount(..),
-  FeeRatio(..),
   applyFee,
   AmountRatio(..),
   makeRatio,
@@ -44,7 +43,7 @@ module Potato.CryptoTrader.Types (
   SAI
 ) where
 
-import           Control.DeepSeq            (NFData)
+import           Control.DeepSeq        (NFData)
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
@@ -58,12 +57,8 @@ newtype Amount t = Amount Integer
 instance (Token t) => Show (Amount t) where
   show t = show (toStdDenom t) ++ " " ++ tokenName (Proxy :: Proxy t)
 
--- | type safe representation of a transaction fee percent
-newtype FeeRatio t = FeeRatio Double
-  deriving (Eq, Ord, Show, Read, Enum, Num, Real, Fractional, RealFrac, Generic, NFData)
-
-applyFee :: FeeRatio t -> Amount t -> Amount t
-applyFee (FeeRatio f) = Amount . floor . ((1-f) *) . fromIntegral
+applyFee :: AmountRatio t t -> Amount t -> Amount t
+applyFee (AmountRatio f) = Amount . floor . ((1-f) *) . fromIntegral
 
 -- | type safe representation of a currency exchange ratio t1:t2 in its base (smallest) denomination
 newtype AmountRatio t1 t2 = AmountRatio Double
@@ -166,6 +161,7 @@ class Exchange e where
   -- | type family for the exchange (trading) pair id
   -- For example, for a on chain uniswap exchange, the pair id is the uniswap contract address
   type ExchangePairId e :: *
+  -- TODO rename to ExchangeData, as we want it to store parameters and cache and whatever else makes sense to the user
   -- | intended to store mutable references for stuff like caches and connection analytics or whatever
   type ExchangeCache e :: *
   -- TODO generalize account access to the exchange
