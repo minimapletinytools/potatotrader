@@ -23,7 +23,7 @@ testArbitrage :: Test
 testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),nilKey))
-    params = ArbitrageParameters {
+    params = ArbitrageParams {
         dryRun = True
         , minProfitAmount = (0,0)
       }

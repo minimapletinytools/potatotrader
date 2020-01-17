@@ -9,7 +9,7 @@
 module Potato.CryptoTrader.Arbitrage (
   CtxPair,
   ExchangePairT,
-  ArbitrageParameters(..),
+  ArbitrageParams(..),
   ArbitrageLogs,
   ArbitrageConstraints,
   arbitrage,
@@ -78,7 +78,7 @@ type ArbitrageConstraints t1 t2 e1 e2 m = (
   , MonadExchange m
   )
 
-data ArbitrageParameters t1 t2 = ArbitrageParameters {
+data ArbitrageParams t1 t2 = ArbitrageParams {
   dryRun            :: Bool -- if true, does not actually send transactions
   , minProfitAmount :: (Amount t1, Amount t2) -- only arbitrage if profit is >= minProfitAmount
 }
@@ -100,7 +100,7 @@ data ArbitrageParameters t1 t2 = ArbitrageParameters {
 --
 arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
   => Proxy (t1, t2, e1, e2)
-  -> ArbitrageParameters t1 t2
+  -> ArbitrageParams t1 t2
   -> ExchangePairT e1 e2 m (Maybe (Amount t1, Order t1 t2 e1, Order t1 t2 e2)) -- ^ returns tuple of profit and arbitrage orders if made, Nothing otherwise
 arbitrage _ params = do
 

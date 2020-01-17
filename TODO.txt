@@ -3,7 +3,7 @@
 -add warning for low liquidity in arbitrage D: ?
 -market maker :O
 -rename ExchangeCache to ExchangeData
--rename ArbitrageParams
+DONE-rename ArbitrageParams
 -rename CryptoTrader to just Trader
 
 

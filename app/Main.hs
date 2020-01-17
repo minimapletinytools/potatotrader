@@ -17,7 +17,7 @@ import qualified Data.Text                            as T
 type ArbMonad t1 t2 = ExchangePairT t1 t2 (WriterT ArbitrageLogs IO)
 arbForever :: forall t1 t2 e1 e2. (ArbitrageConstraints t1 t2 e1 e2 (ArbMonad t1 t2))
   => Proxy (t1,t2,e1,e2)
-  -> ArbitrageParameters t1 t2
+  -> ArbitrageParams t1 t2
   -> Amount t1
   -> ExchangeCtx e1
   -> ExchangeCtx e2
@@ -78,7 +78,7 @@ main = do
   let
     --p = Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain,Bilaxy)
     p = Proxy :: Proxy (USDT,TT,ReverseExchangePair USDT TT (OnChain ThunderCoreMain),ReverseExchangePair USDT TT Bilaxy)
-    params = ArbitrageParameters {
+    params = ArbitrageParams {
         dryRun = False
         , minProfitAmount = (fromStdDenom 0.05 :: Amount USDT, fromStdDenom 15 :: Amount TT)
       }
