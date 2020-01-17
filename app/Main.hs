@@ -30,9 +30,13 @@ arbForever pproxy params profit ctx1 ctx2 = do
     arb = arbitrage pproxy params
   -- run arbitrage
   marbrslt <- try $ runWriterT $ runReaderT arb ctx
+
   (oss,logs) <- case marbrslt of
     Left (SomeException e) -> do
       putStrLn $ "arbitrage failed with exception: " ++ show e
+      -- restart on failure
+      threadDelay (floor 12e6)
+      arbForever pproxy params profit ctx1 ctx2
       throwM e
     Right r -> return r
   mapM_ (print . T.unpack) logs

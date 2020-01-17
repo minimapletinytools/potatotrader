@@ -6,7 +6,7 @@ module Potato.Trader.Helpers (
   make_buyt1_from_askst1
 ) where
 
-import           Data.List                 (mapAccumL)
+import           Data.List           (mapAccumL)
 import           Data.Proxy
 import           Potato.Trader.Types
 
@@ -19,8 +19,6 @@ cancelAllOrders :: (ExchangePair t1 t2 e, MonadExchange m) => Proxy (t1, t2, e) 
 cancelAllOrders p = do
   orders <- getOrders p
   mapM_ (cancel p) orders
-
-
 
 -- | takes a list of market order bids for t1 (in base denomination)
 -- (bids are people trying to buy t1 using t2)
