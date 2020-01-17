@@ -183,6 +183,8 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
           --(at1',at2') = assert ((fromStdDenom dt1, fromStdDenom dt2) == (at1, at2)) (at1,at2)
     return $ map mapFn orders
 
+  -- | N.B. Bilaxy orders throw if their volume is too low
+  -- the min volume is token dependent. We could expose this info but I can't think of a great way to abstract this 
   order pproxy ofl ot amount_t1 amount_t2 = do
     (asks, bids) <- getDepthHelper pproxy
     let

@@ -61,7 +61,6 @@ dependencies:
 - containers
 - vector
 - time
-# - unix-time
 - hspec
 - HUnit
 - hspec-contrib

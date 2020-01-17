@@ -30,7 +30,11 @@ testArbitrage :: Test
 testArbitrage = TestCase $ do
   let
     ctx = (((),()),((),nilKey))
-    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2)) True
+    params = ArbitrageParameters {
+        dryRun = True
+        , minProfitAmount = (0,0)
+      }
+    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2)) params
   (_,logs) <- runWriterT $ flip runReaderT ctx arb
   mapM_ (print . T.unpack) logs
   return ()

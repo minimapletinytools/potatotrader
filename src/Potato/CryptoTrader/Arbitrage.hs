@@ -7,6 +7,7 @@
 module Potato.CryptoTrader.Arbitrage (
   CtxPair(..),
   ExchangePairT(..),
+  ArbitrageParameters(..),
   ArbitrageLogs,
   ArbitrageConstraints,
   arbitrage,
@@ -39,13 +40,6 @@ type CtxSingle e = (ExchangeCache e, ExchangeAccount e)
 -- newtype wrapper needed to avoid duplicate instances
 type CtxPair e1 e2 = (CtxSingle e1, CtxSingle e2)
 
--- | constraint kind needed for arbitrage operations
-type ArbitrageConstraints t1 t2 e1 e2 m = (
-  ExchangePair t1 t2 e1
-  , ExchangePair t1 t2 e2
-  , MonadExchange m
-  )
-
 -- | logging type for arbitrage
 -- TODO
 data ArbitrageLogs = ArbitrageLogs deriving (Show)
@@ -59,9 +53,6 @@ tellShow x = tell [T.pack (show x)]
 
 tellString :: (MonadWriter [T.Text] m) => String -> m ()
 tellString s = tell [T.pack s]
-
--- | monad type used for arbitrage which allows operating on two exchanges at the same time
-type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
 
 -- TODO figure out type signature
 -- using this type signature creates ambiguous type var error.. don't entirely understand why because CtxSingle e1/e2 should always tuples inside of CtxPair e1 e2
@@ -77,8 +68,27 @@ lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
 lifte2 :: ReaderT r m a -> ReaderT (b, r) m a
 lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
 
+-- | monad type used for arbitrage which allows operating on two exchanges at the same time
+type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
+
+-- | constraint kind needed for arbitrage operations
+type ArbitrageConstraints t1 t2 e1 e2 m = (
+  ExchangePair t1 t2 e1
+  , ExchangePair t1 t2 e2
+  , MonadExchange m
+  )
+
+data ArbitrageParameters t1 t2 = ArbitrageParameters {
+  dryRun :: Bool -- if true, does not actually send transactions
+  , minProfitAmount :: (Amount t1, Amount t2) -- only arbitrage if profit is >= minProfitAmount
+}
+
 -- | check for arbitrage opportunities and submits orders if profitable
--- returns orders submitted
+-- returns orders submitted or Nothing if no arbitrage was possible
+-- throws if any query operation fails
+-- does not attempt to do any recovery on failure so it's possible that one arbtriage order went through and the other did not
+--
+-- arbitrage only profits in t1, to profit on t2, call arbitrage using 'ReverseExchangePair'
 --
 -- arbitrage terminology
 -- * b_tiek - balance in ti tokens on ek
@@ -90,9 +100,9 @@ lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
 --
 arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
   => Proxy (t1, t2, e1, e2)
-  -> Bool -- ^ if true, does not actually execute orders
-  -> ExchangePairT e1 e2 m (Maybe (Order t1 t2 e1, Order t1 t2 e2)) -- ^ returns tuple of arbitrage orders if made, Nothing otherwise
-arbitrage _ dryRun = do
+  -> ArbitrageParameters t1 t2
+  -> ExchangePairT e1 e2 m (Maybe (Amount t1, Order t1 t2 e1, Order t1 t2 e2)) -- ^ returns tuple of profit and arbitrage orders if made, Nothing otherwise
+arbitrage _ params = do
 
   startTime <- liftIO getCurrentTime
   tellString $ "BEGIN ARBITRAGE: " ++ show startTime
@@ -137,6 +147,8 @@ arbitrage _ dryRun = do
     Right r                -> return r
 
   let
+    dontSendOrder = dryRun params
+    (mint1p,_) = minProfitAmount params
     sellt1_e1 = sellt1 exchRate1
     buyt1_e1 = buyt1 exchRate1
     sellt1_e2 = sellt1 exchRate2
@@ -145,9 +157,8 @@ arbitrage _ dryRun = do
     e1toe2Str = exchangeName (Proxy :: Proxy e1) ++ " to " ++ exchangeName (Proxy :: Proxy e2)
     e2toe1Str = exchangeName (Proxy :: Proxy e2) ++ " to " ++ exchangeName (Proxy :: Proxy e1)
 
-
   rOrders <- case profit_t1 (Proxy :: Proxy (t1,t2,e1,e2)) (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1_e2 of
-    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 <= 0 then tellString "NO ARBITRAGE" >> return Nothing else do
+    Left (in_t1e2, out_profit_t1e1) -> if out_profit_t1e1 < mint1p then tellString "NO ARBITRAGE" >> return Nothing else do
       let
         out_t2e2 = sellt1_e2 in_t1e2
         in_t2e1 = out_t2e2
@@ -155,14 +166,14 @@ arbitrage _ dryRun = do
       tellString $ "RAN PROFIT " ++ tokenOrderStr ++ " " ++ e2toe1Str ++ ": " ++ show (in_t1e2, out_t2e2, out_t1e1)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e1
 
-      if dryRun then return Nothing else do
+      if dontSendOrder then return Nothing else do
         -- buy t1 on e1
         eo1 <- lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Buy out_t1e1 in_t2e1
         -- sell t1 on e2
         eo2 <- lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Sell in_t1e2 out_t2e2
-        return $ Just (eo1, eo2)
+        return $ Just (out_profit_t1e1, eo1, eo2)
 
-    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 <= 0 then tellString "NO ARBITRAGE" >> return Nothing else do
+    Right (in_t1e1, out_profit_t1e2) -> if out_profit_t1e2 < mint1p then tellString "NO ARBITRAGE" >> return Nothing else do
       let
         out_t2e1 = sellt1_e1 in_t1e1
         in_t2e2 = out_t2e1
@@ -170,12 +181,12 @@ arbitrage _ dryRun = do
       tellString $ "RAN PROFIT " ++ tokenOrderStr ++ " " ++ e1toe2Str ++ ": " ++ show (in_t1e1, out_t2e1, out_t1e2)
       tellString $ "ACTUAL PROFIT: " ++ show out_profit_t1e2
 
-      if dryRun then return Nothing else do
+      if dontSendOrder then return Nothing else do
         -- sell t1 on e1
         eo1 <- lifte1 $ order (Proxy :: Proxy (t1,t2,e1)) Flexible Sell in_t1e1 out_t2e1
         -- buy t1 on e2
         eo2 <- lifte2 $ order (Proxy :: Proxy (t1,t2,e2)) Flexible Buy out_t1e2 in_t2e2
-        return $ Just (eo1, eo2)
+        return $ Just (out_profit_t1e2, eo1, eo2)
 
   endTime <- liftIO getCurrentTime
   tellString $ "END ARBITRAGE: " ++ show endTime
