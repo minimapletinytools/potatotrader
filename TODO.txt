@@ -16,6 +16,8 @@ DONE-rename Trader to just Trader
 -come up with concrete rules for decimal conversion in bilaxy exchange when posting orders
   -I feel like I need a method for getting approx USD value of token
 -test cases for flipExchange
+-remove mock monads from Bilaxy.Query, instead make interface using exposed IO methods of the module (e.g. getDepth, getBalance, etc)
+  -and do the same for Chain.Query
 DONE-add arbitrage parameters struct to arbitrage
   IGNORE-add min purchase amount threshold for arbitrage orders
     -64 TT was definitely too little...
