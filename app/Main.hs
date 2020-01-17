@@ -7,6 +7,7 @@ import           Potato.CryptoTrader.Exchanges.Bilaxy
 import           Potato.CryptoTrader.Exchanges.Chain
 
 import           Control.Concurrent
+import           Control.Monad.Catch
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
@@ -27,8 +28,15 @@ arbForever pproxy params profit ctx1 ctx2 = do
   let
     ctx = (ctx1, ctx2)
     arb = arbitrage pproxy params
-  (oss,logs) <- runWriterT $ runReaderT arb ctx
+  -- run arbitrage
+  marbrslt <- try $ runWriterT $ runReaderT arb ctx
+  (oss,logs) <- case marbrslt of
+    Left (SomeException e) -> do
+      putStrLn $ "arbitrage failed with exception: " ++ show e
+      throwM e
+    Right r -> return r
   mapM_ (print . T.unpack) logs
+  -- query orders we just made
   osl <- flip runReaderT ctx $ do
     case oss of
       Nothing -> return Nothing
@@ -36,6 +44,7 @@ arbForever pproxy params profit ctx1 ctx2 = do
         osl1 <- lifte1 $ getStatus (Proxy :: Proxy (t1,t2,e1)) eo1
         osl2 <- lifte2 $ getStatus (Proxy :: Proxy (t1,t2,e2)) eo2
         return $ Just (arbProfit, osl1, osl2)
+  -- report profit
   newProfit <- case osl of
     Nothing -> print "no orders made" >> return profit
     Just (arbProfit, osl1, osl2) -> do
@@ -69,7 +78,7 @@ main = do
     --p = Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain,Bilaxy)
     p = Proxy :: Proxy (USDT,TT,ReverseExchangePair USDT TT (OnChain ThunderCoreMain),ReverseExchangePair USDT TT Bilaxy)
     params = ArbitrageParameters {
-        dryRun = True
+        dryRun = False
         , minProfitAmount = (fromStdDenom 0.1 :: Amount USDT, fromStdDenom 30 :: Amount TT)
       }
   arbForever p params 0 ((),()) ((),nilKey)

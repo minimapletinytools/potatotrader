@@ -177,14 +177,10 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
           price = stdDenomToRatio (BA.oi_price order) :: AmountRatio t2 t1
           volume = fromStdDenom (BA.oi_count order) :: Amount t1
           (at1,at2) = (volume, price $:$* volume)
-          -- TODO just for testing
-          --dt1 = BA.oi_count order
-          --dt2 = dt1 * BA.oi_price order
-          --(at1',at2') = assert ((fromStdDenom dt1, fromStdDenom dt2) == (at1, at2)) (at1,at2)
     return $ map mapFn orders
 
   -- | N.B. Bilaxy orders throw if their volume is too low
-  -- the min volume is token dependent. We could expose this info but I can't think of a great way to abstract this 
+  -- the min volume is token dependent. We could expose this info but I can't think of a great way to abstract this
   order pproxy ofl ot amount_t1 amount_t2 = do
     (asks, bids) <- getDepthHelper pproxy
     let
@@ -194,6 +190,8 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
     v <- case ofl of
       Rigid -> do
         let
+          -- N.B. if we used the methods returned by getExchangeRate to compute input and output token amounts
+          -- the orders may not get processed immediately because the min/max bid/ask may be lower/higher than the average computed here
           price_t2 = makeRatio amount_t2 amount_t1
         r <- liftIO . try $ do
           oid <- postOrder pair (toStdDenom amount_t1) (ratioToStdDenom price_t2) ot
@@ -206,7 +204,13 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
             Buy  -> make_buyPerPricet1_from_askst1 asks amount_t2
             -- selling t1 for t2
             Sell -> make_toSellPerPricet1_from_bidst1 bids amount_t1
-        forM pvpairs $ \pv@(pt2t1, vt1) -> liftIO . try $ do
+          -- TODO test this!!!
+          -- create a single order using lowest/highest price
+          -- sadly, we have to do this because by splitting our orders over available prices, we may create an order below the min amount
+          -- TODO better to fix this by combining the last two orders at min/max price if the last order amount is below the threshold
+          minOrMax = if ot == Buy then max else min
+          pvpairs_using_lowest = [foldl1 (\(minPrice, totalVolume) (pt2t1, vt1) -> (minOrMax minPrice pt2t1, totalVolume + vt1)) pvpairs]
+        forM pvpairs_using_lowest $ \pv@(pt2t1, vt1) -> liftIO . try $ do
           oid <- postOrder pair (toStdDenom vt1) (ratioToStdDenom pt2t1) ot
           return (oid, pv)
     boDetails <- forM v $ \case
