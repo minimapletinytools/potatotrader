@@ -13,10 +13,8 @@ import           Test.Hspec
 import           Test.Hspec.Contrib.HUnit                   (fromHUnitTest)
 import           Test.HUnit
 
-type BilaxyReaderIO = ReaderT BilaxyCtx IO
+bilaxyCtx :: (BilaxyCache, BilaxyAccount)
 bilaxyCtx = ((),nilKey)
-
-flipReaderT = flip runReaderT
 
 assertThrows :: (MonadIO m, C.MonadCatch m) => m a -> m ()
 assertThrows action = do
@@ -39,29 +37,29 @@ testPrivate = TestCase $ do
 
 -- test class methods in Exchange.hs
 test_getBalance :: Test
-test_getBalance = TestCase $ flipReaderT bilaxyCtx $ do
+test_getBalance = TestCase $ flip runReaderT bilaxyCtx $ do
   b1 <- getBalance (Proxy :: Proxy (TT,Bilaxy))
   b2 <- getBalance (Proxy :: Proxy (USDT,Bilaxy))
   liftIO $ print (b1,b2) -- not best way to force b1/b2 but whatever
 
-test_getOrderInfo :: Test
-test_getOrderInfo = TestCase $ flipReaderT bilaxyCtx $
+test_getOrderInfo_fail :: Test
+test_getOrderInfo_fail = TestCase $ flip runReaderT bilaxyCtx $
   assertThrows (liftIO $ getOrderInfo (-1))
 
 test_getOrders :: Test
-test_getOrders = TestCase $ flipReaderT bilaxyCtx $ do
+test_getOrders = TestCase $ flip runReaderT bilaxyCtx $ do
   orders <- getOrders (Proxy :: Proxy (TT,USDT,Bilaxy))
   liftIO $ print orders
 
 test_getExchangeRate :: Test
-test_getExchangeRate = TestCase $ flipReaderT bilaxyCtx $ do
+test_getExchangeRate = TestCase $ flip runReaderT bilaxyCtx $ do
   r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy))
   liftIO $ print r
 
 -- yes this actually makes an order and cancel it...
 -- uses a very very high sell price so unlikely to actually go through
 test_order_getStatus_cancel :: Test
-test_order_getStatus_cancel = TestCase $ flipReaderT bilaxyCtx $ do
+test_order_getStatus_cancel = TestCase $ flip runReaderT bilaxyCtx $ do
   let p = (Proxy :: Proxy (TT,USDT,Bilaxy))
   -- Rigid enforces price by what we set and not based on asks
   o <- order p Rigid Sell (fromStdDenom 1000) (fromStdDenom 123)
@@ -85,7 +83,9 @@ tests = hspec $
     describe "getBalance" $
       fromHUnitTest test_getBalance
     describe "getOrderInfo" $
-      fromHUnitTest test_getOrderInfo
+      fromHUnitTest test_getOrderInfo_fail
+    describe "getOrders" $
+      fromHUnitTest test_getOrders
     describe "getExchangeRate" $
       fromHUnitTest test_getExchangeRate
     describe "order_cancel" $

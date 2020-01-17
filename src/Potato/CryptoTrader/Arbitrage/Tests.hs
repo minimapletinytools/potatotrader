@@ -5,12 +5,7 @@ module Potato.CryptoTrader.Arbitrage.Tests (
   tests
 ) where
 
-import           Control.Exception
-import           Control.Monad
-import qualified Control.Monad.Catch                  as C
-import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import qualified Control.Monad.Trans                  as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import qualified Data.Text                            as T

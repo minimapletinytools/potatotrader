@@ -11,9 +11,12 @@
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
--- warnings disabled for web3 TH generated code
+
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- below warnings are disabled for web3 TH generated code
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+
 
 module Potato.CryptoTrader.Exchanges.Chain.Query (
   getAddress,
@@ -26,7 +29,7 @@ module Potato.CryptoTrader.Exchanges.Chain.Query (
   getTransactionByHash,
 
   calcInputPrice,
-  UniFee(..),
+  UniFee,
   defaultFee,
   noFee
 ) where
@@ -196,27 +199,9 @@ txTokenToEthSwapInput url cid uniAddr amountTokens minEth = do
       tokenToEthSwapInput (fromInteger amountTokens) (fromInteger (toWei minEth)) (fromInteger (blockTime + 9999999))
 
 
-
-
-
-
--- TODO delete everything below
-
-
-providerURL = "https://mainnet-rpc.thundercore.com"
---providerURL = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
-chainId = 108
-myAddress = "0xC82bDc455bF1EB9A5e4b9D54979232e2b7340643" :: BS.ByteString
-
-ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
-uniTTUSDT = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
-uniswapLib = "0x7c1e1a39703ab5c21b5537d4093ccd1117ded405"
-uniswapFact = "0xcE393b11872EE5020828e443f6Ec9DE58CD8b6c5"
-
-traceParams :: (Show p,  Account p (AccountT p)) => AccountT p m a -> AccountT p m a
-traceParams = withParam (\x -> trace (paramsToString x) $ x)
-
+-- | Uniswap fee type
 type UniFee = (Integer, Integer)
+-- | the default uniswap fee
 defaultFee :: UniFee
 defaultFee = (997,1000)
 noFee :: UniFee
@@ -225,7 +210,6 @@ noFee = (1,1)
 -- | calcInputPrice is just uniswap getInputPrice
 calcInputPrice :: Integer -> Integer -> Integer -> Integer
 calcInputPrice = calcInputPrice_ defaultFee
-
 
 -- input_amount is amount being sold, returns amount bought
 calcInputPrice_ :: UniFee -> Integer -> Integer -> Integer -> Integer
@@ -239,6 +223,23 @@ calcFee :: UniFee -> Integer -> Integer -> Integer -> Integer
 calcFee fee input_amount input_reserve output_reserve =
   calcInputPrice_ noFee input_amount input_reserve output_reserve
   - calcInputPrice_ fee input_amount input_reserve output_reserve
+
+
+
+-- TODO delete everything below
+providerURL = "https://mainnet-rpc.thundercore.com"
+--providerURL = "https://mainnet.infura.io/v3/2edbdd953f714eeab3f0001bb0b96b91"
+chainId = 108
+myAddress = "0xC82bDc455bF1EB9A5e4b9D54979232e2b7340643" :: BS.ByteString
+
+ttUSDT = "0x4f3C8E20942461e2c3Bdd8311AC57B0c222f2b82"
+uniTTUSDT = "0x3e9Ada9F40cD4B5A803cf764EcE1b4Dae6486204"
+uniswapLib = "0x7c1e1a39703ab5c21b5537d4093ccd1117ded405"
+uniswapFact = "0xcE393b11872EE5020828e443f6Ec9DE58CD8b6c5"
+
+traceParams :: (Show p,  Account p (AccountT p)) => AccountT p m a -> AccountT p m a
+traceParams = withParam (\x -> trace (paramsToString x) $ x)
+
 
 -- | noMarginalGain returns the amount of input tokens that should be bought
 -- such that marginal gain given to arbPrice exchange rate is zero

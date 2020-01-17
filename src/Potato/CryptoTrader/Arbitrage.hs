@@ -3,10 +3,12 @@
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+
 
 module Potato.CryptoTrader.Arbitrage (
-  CtxPair(..),
-  ExchangePairT(..),
+  CtxPair,
+  ExchangePairT,
   ArbitrageParameters(..),
   ArbitrageLogs,
   ArbitrageConstraints,
@@ -18,14 +20,12 @@ module Potato.CryptoTrader.Arbitrage (
   searchMax
 ) where
 
-import           Control.Monad
 import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
 import           Control.Parallel.Strategies
 import           Data.Proxy
-import           Data.Semigroup
 import qualified Data.Text                   as T
 import           Data.Time.Clock
 import           Potato.CryptoTrader.Helpers
@@ -48,8 +48,8 @@ instance Semigroup ArbitrageLogs where
 instance Monoid ArbitrageLogs where
   mempty = ArbitrageLogs
 
-tellShow :: (Show a, MonadWriter [T.Text] m) => a -> m ()
-tellShow x = tell [T.pack (show x)]
+--tellShow :: (Show a, MonadWriter [T.Text] m) => a -> m ()
+--tellShow x = tell [T.pack (show x)]
 
 tellString :: (MonadWriter [T.Text] m) => String -> m ()
 tellString s = tell [T.pack s]
@@ -61,12 +61,12 @@ tellString s = tell [T.pack s]
 -- | lift a reader action on r to a reader action on (r,b)
 -- this matches the type `ExchangeT e1 m a -> ExchangePairT e1 e2 m a`
 lifte1 :: ReaderT r m a -> ReaderT (r, b) m a
-lifte1 a = ReaderT $ \(c1,c2) -> runReaderT a c1
+lifte1 a = ReaderT $ \(c1,_) -> runReaderT a c1
 
 -- | lift a reader action on r to a reader action on (b,r)
 -- this matches the type `ExchangeT e2 m a -> ExchangePairT e1 e2 m a`
 lifte2 :: ReaderT r m a -> ReaderT (b, r) m a
-lifte2 a = ReaderT $ \(c1,c2) -> runReaderT a c2
+lifte2 a = ReaderT $ \(_,c2) -> runReaderT a c2
 
 -- | monad type used for arbitrage which allows operating on two exchanges at the same time
 type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
@@ -197,7 +197,7 @@ arbitrage _ params = do
 
 -- |
 profit_t1 ::
-  forall t1 t2 e1 e2. (Token t1, Token t2, Exchange e1, Exchange e2)
+  forall t1 t2 e1 e2. (Token t1, Token t2)
   => Proxy (t1,t2,e1,e2) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
   -> (Amount t1, Amount t2) -- ^ e1 balances
   -> (Amount t1, Amount t2) -- ^ e2 balances
@@ -238,8 +238,8 @@ profit_t1 _ (b_t1e1, b_t2e1) (b_t1e2, b_t2e2) sellt1_e1 buyt1_e1 sellt1_e2 buyt1
 -- |
 -- profit in ti tokens on exchange ek (after arbitrage ti->tj on el and tj->ti on ek)
 profit_tiek ::
-  forall ti tj ek el. (Token ti, Token tj, Exchange ek, Exchange el)
-  => Proxy (ti, tj, el, ek) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
+  forall ti tj ek el.
+  Proxy (ti, tj, el, ek) -- ^ proxy to help make "type bindings" in function name explicit. Note that there is no need fo constraints on e1 and e2.
   -> (Amount ti -> Amount tj) -- ^ sellti_el
   -> (Amount tj -> Amount ti) -- ^ buyti_ek
   -> Amount tj -- ^ amount of tj tokens we have to spend on ek

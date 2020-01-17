@@ -8,8 +8,7 @@ Stability   : experimental
 -}
 
 module Potato.CryptoTrader (
-  module Potato.CryptoTrader
-  , module Potato.CryptoTrader.Arbitrage
+  module Potato.CryptoTrader.Arbitrage
   , module Potato.CryptoTrader.ReverseExchangePair
   , module Potato.CryptoTrader.MarketMaker
   , module Potato.CryptoTrader.Types

@@ -1,5 +1,5 @@
 module Potato.CryptoTrader.Exchanges.Bilaxy.Account (
-  BilaxyAccount(..),
+  BilaxyAccount,
   nilKey,
   readBilaxAccount
 ) where

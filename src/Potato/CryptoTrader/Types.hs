@@ -25,7 +25,7 @@ module Potato.CryptoTrader.Types (
   fromStdDenom,
   ratioToStdDenom,
   stdDenomToRatio,
-  ExchangeCtx(..),
+  ExchangeCtx,
   MonadExchange,
   ExchangeT,
   Exchange(..),
@@ -34,12 +34,12 @@ module Potato.CryptoTrader.Types (
   OrderState(..),
   OrderStatus(..),
   defOrderStatus,
-  Order,
 
-  TT(..),
-  ETH(..),
-  USDT(..),
-  SAI(..)
+  -- TODO move these to a different file
+  TT,
+  ETH,
+  USDT,
+  SAI
 ) where
 
 import           Control.DeepSeq            (NFData)
@@ -47,7 +47,6 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Data.Solidity.Prim.Address (Address)
 import           GHC.Generics
 
 -- | type safe representation of a currency amount in its base (smallest) denomination
@@ -113,11 +112,10 @@ data ExchangeRate t1 t2 = ExchangeRate {
 }
 
 -- TODO consider making ExchangeRate into a type class to de the below two functions more elegantly
-buyt2 :: ExchangeRate t1 t2 -> (Amount t1 -> Amount t2)
-buyt2 = sellt1
-
-sellt2 :: ExchangeRate t1 t2 -> (Amount t2 -> Amount t1)
-sellt2 = buyt1
+--buyt2 :: ExchangeRate t1 t2 -> (Amount t1 -> Amount t2)
+--buyt2 = sellt1
+--sellt2 :: ExchangeRate t1 t2 -> (Amount t2 -> Amount t1)
+--sellt2 = buyt1
 
 -- | A class for tradeable tokens
 class Token t where
@@ -143,8 +141,8 @@ stdDenomToRatio r = AmountRatio $ r * fromIntegral (decimals (Proxy :: Proxy t1)
 
 -- | not an especially pretty implementation, just for debugging purposes
 instance (Token t1, Token t2) => Show (ExchangeRate t1 t2) where
-  show (ExchangeRate sellt1' buyt1' variance') = output where
-    amounts = map (10^) [0..5]
+  show (ExchangeRate sellt1' buyt1' _) = output where
+    amounts = map (10^) [0..5 :: Integer]
     unAmount (Amount x) = x
     sellChart = map (unAmount . sellt1' . Amount) amounts
     buyChart = map (unAmount . buyt1' . Amount) amounts

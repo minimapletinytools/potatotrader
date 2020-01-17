@@ -2,12 +2,9 @@ module Potato.CryptoTrader.Tests (
   tests
 ) where
 
-import           Data.Proxy
 import           Potato.CryptoTrader.Helpers
 import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit    (fromHUnitTest)
-import           Test.HUnit
 
 
 -- bids are people trying to buy TT

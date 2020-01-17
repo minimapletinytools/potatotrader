@@ -1,21 +1,18 @@
 --{-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE InstanceSigs          #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
 
 module Potato.CryptoTrader.Exchanges.Chain.Exchange (
-  ThunderCoreMain(..),
-  EthereumMain(..),
+  ThunderCoreMain,
+  EthereumMain,
 
-  OnChain(..),
+  OnChain,
   ChainCtx
 ) where
 

@@ -31,7 +31,7 @@ make_toSellPerPricet1_from_bidst1 ::
   -> [(AmountRatio t2 t1, Amount t1)] -- ^ amount of t1 sold at each price
 make_toSellPerPricet1_from_bidst1 bids t1 = r where
   myFunc :: Amount t1 -> (AmountRatio t2 t1, Amount t1) -> (Amount t1, Amount t1)
-  myFunc remainingt1 (price, volume) = (remainingt1-soldt1, soldt1) where
+  myFunc remainingt1 (_, volume) = (remainingt1-soldt1, soldt1) where
     soldt1 = min remainingt1 volume
   (_, soldt1Array) = mapAccumL myFunc t1 bids
   r = zip (map fst bids) (takeWhile (> 0) soldt1Array)

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
 module Main where
 
 import           Potato.CryptoTrader
@@ -5,12 +7,7 @@ import           Potato.CryptoTrader.Exchanges.Bilaxy
 import           Potato.CryptoTrader.Exchanges.Chain
 
 import           Control.Concurrent
-import           Control.Exception
-import           Control.Monad
-import qualified Control.Monad.Catch                  as C
-import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import qualified Control.Monad.Trans                  as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
 import qualified Data.Text                            as T
