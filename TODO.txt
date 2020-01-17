@@ -1,14 +1,27 @@
 :: TODO TMRW::
--add arbitrage parameters struct to arbitrage
-  -add min purchase amount threshold for arbitrage orders
-    -64 TT was definitely too little...
--add tracking of total profits in arbitrage D:
-  -track starting balances so you can check your work when your done D:
 -shuffle your balances around so you can arbitrage for real
 -add warning for low liquidity in arbitrage D: ?
+-market maker :O
+-rename ArbitrageParams
+-rename CryptoTrader to just Trader
+
+
+::TODO::
+-consider adding MonadLogger stuff
+-actually use the account thing inside of Bilaxy.Query
+-add account support to Chain.Query
+-add test cases for all the chain query stuff D:
+  DONE-merge testfixture branch
+-come up with concrete rules for decimal conversion in bilaxy exchange when posting orders
+  -I feel like I need a method for getting approx USD value of token
+-test cases for flipExchange
+DONE-add arbitrage parameters struct to arbitrage
+  IGNORE-add min purchase amount threshold for arbitrage orders
+    -64 TT was definitely too little...
+DONE-add tracking of total profits in arbitrage D:
+  -track starting balances so you can check your work when your done D:
 DONE-add routine to actually check if orders got executed
   -add input/output amount to OrderState or whatever so you can get the amount traded
--market maker :O
 DONE-test arbitrage on USDT/TT instead
 DONE-add routine that runs arbitrage every now and then
 DONE-check that it actually worked ^
@@ -18,15 +31,7 @@ DONE-force exchange rate on uniswap and see if that changes profit
 DONE-add tx fees to Chain exchange
 DONE-fix the order pricing issue in Bilaxy.Exchange (using avg price, not lowest/highest price)
   -it would actually be best if it submit several orders instead of 1 at the lowest/highest price for safety
-
-
-::TODO::
--actually use the account thing inside of Bilaxy.Query
--add account support to Chain.Query
--add test cases for all the chain query stuff D:
-  DONE-merge testfixture branch
--fix decimal conversion in bilaxy exchange when posting orders
--test flipExchange
+DONE-test flipExchange
 DONE-reorg to give everything a package name
 DONE-Potato.Trading
 DONE-check if bilaxy is actually using bilaxy tokens to pay for txfees

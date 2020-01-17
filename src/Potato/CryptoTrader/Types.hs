@@ -15,6 +15,8 @@ module Potato.CryptoTrader.Types (
   ($:$*),
   (*$:$),
   (/$:$),
+  ($:$*$:$),
+  ($:$/$:$),
   Liquidity(..),
   OrderType(..),
   OrderFlex(..),
@@ -81,6 +83,14 @@ infixl 7 *$:$
 (/$:$) :: Amount t1 -> AmountRatio t1 t2 -> Amount t2
 (/$:$) t1 t1_over_t2 = Amount $ floor $ fromIntegral t1 / t1_over_t2
 infixl 7 /$:$
+
+($:$*$:$) :: AmountRatio t1 t2 -> AmountRatio t2 t1 -> Double
+($:$*$:$)  (AmountRatio r1) (AmountRatio r2) = r1*r2
+infixl 7 $:$*$:$
+
+($:$/$:$) :: AmountRatio t1 t2 -> AmountRatio t1 t2 -> Double
+($:$/$:$)  (AmountRatio r1) (AmountRatio r2) = r1/r2
+infixl 7 $:$/$:$
 
 data Liquidity t1 t2 = Liquidity (Amount t1) (Amount t2)
 
