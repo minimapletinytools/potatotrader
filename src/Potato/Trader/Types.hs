@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 
 
-module Potato.CryptoTrader.Types (
+module Potato.Trader.Types (
   Amount(..),
   applyFee,
   AmountRatio(..),

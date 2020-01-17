@@ -1,4 +1,4 @@
-module Potato.CryptoTrader.Exchanges.Bilaxy.Account (
+module Potato.Trader.Exchanges.Bilaxy.Account (
   BilaxyAccount,
   nilKey,
   readBilaxAccount

@@ -1,9 +1,9 @@
-module Potato.CryptoTrader.Tests (
+module Potato.Trader.Tests (
   tests
 ) where
 
-import           Potato.CryptoTrader.Helpers
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Helpers
+import           Potato.Trader.Types
 import           Test.Hspec
 
 

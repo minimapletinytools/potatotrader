@@ -2,7 +2,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies    #-}
 
-module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
+module Potato.Trader.Exchanges.Bilaxy.Exchange (
   RealBilaxyPair(..),
   Bilaxy(..),
   BilaxyData,
@@ -11,16 +11,16 @@ module Potato.CryptoTrader.Exchanges.Bilaxy.Exchange (
 ) where
 
 import           Control.Exception
-import           Control.Monad                                (foldM, forM)
-import           Control.Monad.Catch                          (throwM)
+import           Control.Monad                          (foldM, forM)
+import           Control.Monad.Catch                    (throwM)
 import           Control.Monad.IO.Class
-import           Data.List                                    (mapAccumL)
+import           Data.List                              (mapAccumL)
 import           Data.Proxy
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Account
-import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson   as BA
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
-import           Potato.CryptoTrader.Helpers
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Exchanges.Bilaxy.Account
+import qualified Potato.Trader.Exchanges.Bilaxy.Aeson   as BA
+import           Potato.Trader.Exchanges.Bilaxy.Query
+import           Potato.Trader.Helpers
+import           Potato.Trader.Types
 
 import           Debug.Trace
 

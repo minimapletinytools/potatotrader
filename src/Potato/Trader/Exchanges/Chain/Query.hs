@@ -18,7 +18,7 @@
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 
-module Potato.CryptoTrader.Exchanges.Chain.Query (
+module Potato.Trader.Exchanges.Chain.Query (
   getAddress,
   getBalanceOf,
   getBalance,

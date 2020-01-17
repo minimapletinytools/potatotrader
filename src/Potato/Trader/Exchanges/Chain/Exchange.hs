@@ -8,7 +8,7 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 
-module Potato.CryptoTrader.Exchanges.Chain.Exchange (
+module Potato.Trader.Exchanges.Chain.Exchange (
   ThunderCoreMain,
   EthereumMain,
 
@@ -19,11 +19,11 @@ module Potato.CryptoTrader.Exchanges.Chain.Exchange (
 import           Control.Exception
 import           Control.Monad.IO.Class
 import           Data.Proxy
-import           Data.Solidity.Prim.Address                (Address)
-import           Network.Ethereum.Api.Types                (TxReceipt (..),
-                                                            txBlockHash)
-import qualified Potato.CryptoTrader.Exchanges.Chain.Query as Q
-import           Potato.CryptoTrader.Types
+import           Data.Solidity.Prim.Address          (Address)
+import           Network.Ethereum.Api.Types          (TxReceipt (..),
+                                                      txBlockHash)
+import qualified Potato.Trader.Exchanges.Chain.Query as Q
+import           Potato.Trader.Types
 
 uniswapMaxGas :: Integer
 uniswapMaxGas = 100000 -- about twice as much gas as needed

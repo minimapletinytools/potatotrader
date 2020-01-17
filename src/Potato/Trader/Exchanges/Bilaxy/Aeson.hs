@@ -1,4 +1,4 @@
-module Potato.CryptoTrader.Exchanges.Bilaxy.Aeson (
+module Potato.Trader.Exchanges.Bilaxy.Aeson (
   BilaxyResponse(..),
   Ticker(..),
   BalanceData(..),
@@ -25,7 +25,7 @@ import           Data.Vector               ((!))
 import           Debug.Trace               (trace)
 import           GHC.Generics
 
-import qualified Potato.CryptoTrader.Types as T
+import qualified Potato.Trader.Types as T
 
 lookupMany :: (FromJSON a) => Object -> [Text] -> Parser a
 lookupMany v x = do

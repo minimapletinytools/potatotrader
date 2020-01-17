@@ -1,6 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 
-module Potato.CryptoTrader.MarketMaker (
+module Potato.Trader.MarketMaker (
   marketMaker
 ) where
 
@@ -9,10 +9,10 @@ import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
-import qualified Data.Text                   as T
+import qualified Data.Text                 as T
 import           Data.Time.Clock
-import           Potato.CryptoTrader.Helpers
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Helpers
+import           Potato.Trader.Types
 
 --type MarketMakerConstraints t1 t2 e = (Token t1, Token t2, Exchange e, ExchangePair t1 t2 e)
 

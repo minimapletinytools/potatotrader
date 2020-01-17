@@ -1,4 +1,4 @@
-module Potato.CryptoTrader.Helpers (
+module Potato.Trader.Helpers (
   cancelAllOrders,
   make_toSellPerPricet1_from_bidst1,
   make_buyPerPricet1_from_askst1,
@@ -8,7 +8,7 @@ module Potato.CryptoTrader.Helpers (
 
 import           Data.List                 (mapAccumL)
 import           Data.Proxy
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Types
 
 
 

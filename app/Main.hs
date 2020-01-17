@@ -2,16 +2,16 @@
 
 module Main where
 
-import           Potato.CryptoTrader
-import           Potato.CryptoTrader.Exchanges.Bilaxy
-import           Potato.CryptoTrader.Exchanges.Chain
+import           Potato.Trader
+import           Potato.Trader.Exchanges.Bilaxy
+import           Potato.Trader.Exchanges.Chain
 
 import           Control.Concurrent
 import           Control.Monad.Catch
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
-import qualified Data.Text                            as T
+import qualified Data.Text                      as T
 
 
 type ArbMonad t1 t2 = ExchangePairT t1 t2 (WriterT ArbitrageLogs IO)
@@ -86,7 +86,7 @@ main = do
 
 
 
---main = Potato.CryptoTrader.Exchanges.Bilaxy.recordDepth 151 10
---main = Potato.CryptoTrader.Exchanges.Bilaxy.testBalance
---main = Potato.CryptoTrader.Exchanges.Bilaxy.testDepth
---main = Potato.CryptoTrader.Exchanges.Chain.testTransaction
+--main = Potato.Trader.Exchanges.Bilaxy.recordDepth 151 10
+--main = Potato.Trader.Exchanges.Bilaxy.testBalance
+--main = Potato.Trader.Exchanges.Bilaxy.testDepth
+--main = Potato.Trader.Exchanges.Chain.testTransaction

@@ -1,13 +1,13 @@
-module Potato.CryptoTrader.Exchanges.Chain.Tests (
+module Potato.Trader.Exchanges.Chain.Tests (
   tests
 ) where
 
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Potato.CryptoTrader.Exchanges.Chain.Exchange
-import           Potato.CryptoTrader.Exchanges.Chain.Query    hiding
+import           Potato.Trader.Exchanges.Chain.Exchange
+import           Potato.Trader.Exchanges.Chain.Query    hiding
                                                                (getBalance)
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Types
 import           Test.Hspec
 import           Test.Hspec.Contrib.HUnit                     (fromHUnitTest)
 import           Test.HUnit

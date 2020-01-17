@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 
-module Potato.CryptoTrader.Arbitrage (
+module Potato.Trader.Arbitrage (
   CtxPair,
   ExchangePairT,
   ArbitrageParams(..),
@@ -28,8 +28,8 @@ import           Control.Parallel.Strategies
 import           Data.Proxy
 import qualified Data.Text                   as T
 import           Data.Time.Clock
-import           Potato.CryptoTrader.Helpers
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Helpers
+import           Potato.Trader.Types
 
 import           Debug.Trace
 

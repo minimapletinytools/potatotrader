@@ -2,14 +2,14 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
-module Potato.CryptoTrader.ReverseExchangePair (
+module Potato.Trader.ReverseExchangePair (
   ReverseExchangePair(..),
   ReverseOrder(..)
 ) where
 
 import           Data.Proxy
 import           Data.Tuple                (swap)
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Types
 
 data ReverseExchangePair t2 t1 e = ReverseExchangePair
 

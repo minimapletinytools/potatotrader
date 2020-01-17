@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
-module Potato.CryptoTrader.Exchanges.Bilaxy.Query (
+module Potato.Trader.Exchanges.Bilaxy.Query (
   DecodeError(..),
 
   getTicker,
@@ -27,22 +27,22 @@ import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Catch
-import qualified Crypto.Hash.SHA1                             as SHA1
+import qualified Crypto.Hash.SHA1                       as SHA1
 import           Data.Aeson
-import qualified Data.ByteString                              as BS
-import qualified Data.ByteString.Builder                      as BSB
-import qualified Data.ByteString.Lazy                         as LBS
-import qualified Data.ByteString.UTF8                         as BS
+import qualified Data.ByteString                        as BS
+import qualified Data.ByteString.Builder                as BSB
+import qualified Data.ByteString.Lazy                   as LBS
+import qualified Data.ByteString.UTF8                   as BS
 import           Data.Double.Conversion.ByteString
-import qualified Data.Map                                     as M
-import           Data.Sort                                    (sort)
+import qualified Data.Map                               as M
+import           Data.Sort                              (sort)
 import           Data.Text.Encoding
 import           Data.Time
-import           Debug.Trace                                  (trace)
-import           Network.HTTP.Simple                          hiding (httpLBS)
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Account
-import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Aeson   as BA
-import qualified Potato.CryptoTrader.Types                    as T
+import           Debug.Trace                            (trace)
+import           Network.HTTP.Simple                    hiding (httpLBS)
+import           Potato.Trader.Exchanges.Bilaxy.Account
+import qualified Potato.Trader.Exchanges.Bilaxy.Aeson   as BA
+import qualified Potato.Trader.Types                    as T
 import           System.IO
 import           System.IO.Error
 import           Text.Printf

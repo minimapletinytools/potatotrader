@@ -1,13 +1,13 @@
---import           Potato.CryptoTrader
+--import           Potato.Trader
 
-import qualified Potato.CryptoTrader.Arbitrage.Tests
-import qualified Potato.CryptoTrader.Exchanges.Bilaxy.Tests
-import qualified Potato.CryptoTrader.Exchanges.Chain.Tests
-import qualified Potato.CryptoTrader.Tests
+import qualified Potato.Trader.Arbitrage.Tests
+import qualified Potato.Trader.Exchanges.Bilaxy.Tests
+import qualified Potato.Trader.Exchanges.Chain.Tests
+import qualified Potato.Trader.Tests
 
 main :: IO ()
 main = do
-  Potato.CryptoTrader.Exchanges.Bilaxy.Tests.tests
-  Potato.CryptoTrader.Exchanges.Chain.Tests.tests
-  Potato.CryptoTrader.Arbitrage.Tests.tests
-  Potato.CryptoTrader.Tests.tests
+  Potato.Trader.Exchanges.Bilaxy.Tests.tests
+  Potato.Trader.Exchanges.Chain.Tests.tests
+  Potato.Trader.Arbitrage.Tests.tests
+  Potato.Trader.Tests.tests

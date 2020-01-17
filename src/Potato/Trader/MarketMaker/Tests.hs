@@ -1,25 +1,25 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
 
-module Potato.CryptoTrader.MarketMaker.Tests (
+module Potato.Trader.MarketMaker.Tests (
   tests
 ) where
 
 import           Control.Exception
 import           Control.Monad
-import qualified Control.Monad.Catch                  as C
+import qualified Control.Monad.Catch            as C
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import qualified Control.Monad.Trans                  as MTL
+import qualified Control.Monad.Trans            as MTL
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
-import qualified Data.Text                            as T
-import           Potato.CryptoTrader.Arbitrage
-import           Potato.CryptoTrader.Exchanges.Bilaxy
-import           Potato.CryptoTrader.Exchanges.Chain
-import           Potato.CryptoTrader.Types
+import qualified Data.Text                      as T
+import           Potato.Trader.Arbitrage
+import           Potato.Trader.Exchanges.Bilaxy
+import           Potato.Trader.Exchanges.Chain
+import           Potato.Trader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit             (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit       (fromHUnitTest)
 import           Test.HUnit
 
 

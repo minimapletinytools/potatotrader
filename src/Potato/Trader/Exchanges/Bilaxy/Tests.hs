@@ -1,4 +1,4 @@
-module Potato.CryptoTrader.Exchanges.Bilaxy.Tests (
+module Potato.Trader.Exchanges.Bilaxy.Tests (
   tests
 ) where
 
@@ -6,9 +6,9 @@ import           Control.Exception
 import qualified Control.Monad.Catch                        as C
 import           Control.Monad.Reader
 import           Data.Proxy
-import           Potato.CryptoTrader.Exchanges.Bilaxy
-import           Potato.CryptoTrader.Exchanges.Bilaxy.Query
-import           Potato.CryptoTrader.Types
+import           Potato.Trader.Exchanges.Bilaxy
+import           Potato.Trader.Exchanges.Bilaxy.Query
+import           Potato.Trader.Types
 import           Test.Hspec
 import           Test.Hspec.Contrib.HUnit                   (fromHUnitTest)
 import           Test.HUnit
