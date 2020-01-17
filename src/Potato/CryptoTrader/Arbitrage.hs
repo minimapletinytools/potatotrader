@@ -79,7 +79,7 @@ type ArbitrageConstraints t1 t2 e1 e2 m = (
   )
 
 data ArbitrageParameters t1 t2 = ArbitrageParameters {
-  dryRun :: Bool -- if true, does not actually send transactions
+  dryRun            :: Bool -- if true, does not actually send transactions
   , minProfitAmount :: (Amount t1, Amount t2) -- only arbitrage if profit is >= minProfitAmount
 }
 

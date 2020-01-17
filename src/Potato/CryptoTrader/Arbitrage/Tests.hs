@@ -8,18 +8,16 @@ module Potato.CryptoTrader.Arbitrage.Tests (
 import           Control.Monad.Reader
 import           Control.Monad.Writer.Lazy
 import           Data.Proxy
-import qualified Data.Text                            as T
+import qualified Data.Text                               as T
 import           Potato.CryptoTrader.Arbitrage
 import           Potato.CryptoTrader.Exchanges.Bilaxy
 import           Potato.CryptoTrader.Exchanges.Chain
+import           Potato.CryptoTrader.ReverseExchangePair
 import           Potato.CryptoTrader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit             (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit                (fromHUnitTest)
 import           Test.HUnit
 
-
-type E1 = (OnChain ThunderCoreMain)
-type E2 = Bilaxy
 
 testArbitrage :: Test
 testArbitrage = TestCase $ do
@@ -29,7 +27,9 @@ testArbitrage = TestCase $ do
         dryRun = True
         , minProfitAmount = (0,0)
       }
-    arb = arbitrage (Proxy :: Proxy (TT,USDT,E1,E2)) params
+    p = Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain,Bilaxy)
+    --p = Proxy :: Proxy (USDT,TT,ReverseExchangePair USDT TT (OnChain ThunderCoreMain),ReverseExchangePair USDT TT Bilaxy)
+    arb = arbitrage p params
   (_,logs) <- runWriterT $ flip runReaderT ctx arb
   mapM_ (print . T.unpack) logs
   return ()

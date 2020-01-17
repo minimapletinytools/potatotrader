@@ -59,14 +59,15 @@ arbForever pproxy params profit ctx1 ctx2 = do
         -- TODO check that expected profit amount matches reported profit from order status
         return $ profit + arbProfit
   putStrLn "=====END ARBITRAGE ROUND====="
-  putStrLn $ "total profit is " ++ show (toStdDenom newProfit)
+  putStrLn $ "total profit is " ++ show newProfit
   putStrLn ""
   putStrLn ""
   putStrLn ""
 
 
   -- sleep for a minute
-  threadDelay (floor 6e7)
+  --threadDelay (floor 6e7)
+  threadDelay (floor 12e6)
 
   -- repeat
   arbForever pproxy params newProfit ctx1 ctx2
@@ -79,7 +80,7 @@ main = do
     p = Proxy :: Proxy (USDT,TT,ReverseExchangePair USDT TT (OnChain ThunderCoreMain),ReverseExchangePair USDT TT Bilaxy)
     params = ArbitrageParameters {
         dryRun = False
-        , minProfitAmount = (fromStdDenom 0.1 :: Amount USDT, fromStdDenom 30 :: Amount TT)
+        , minProfitAmount = (fromStdDenom 0.05 :: Amount USDT, fromStdDenom 15 :: Amount TT)
       }
   arbForever p params 0 ((),()) ((),nilKey)
 
