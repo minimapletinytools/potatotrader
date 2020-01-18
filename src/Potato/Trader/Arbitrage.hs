@@ -139,8 +139,8 @@ arbitrage _ params = do
 
   -- query exchange rate
   erresult <- try $ do
-    exchRate1 <- lifte1 $ getExchangeRate (Proxy :: Proxy (t1,t2,e1))
-    exchRate2 <- lifte2 $ getExchangeRate (Proxy :: Proxy (t1,t2,e2))
+    exchRate1 <- lifte1 $ getExchangeRate (Proxy :: Proxy (t1,t2,e1)) True
+    exchRate2 <- lifte2 $ getExchangeRate (Proxy :: Proxy (t1,t2,e2)) True
     return (exchRate1, exchRate2)
   (exchRate1, exchRate2) <- case erresult of
     Left (SomeException e) -> do

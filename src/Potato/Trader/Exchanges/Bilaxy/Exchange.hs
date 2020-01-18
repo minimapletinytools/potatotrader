@@ -227,10 +227,12 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
         , bilaxyOrderOrigAmount = (amount_t1,amount_t2)
       }
 
-  getExchangeRate pproxy = do
+  getExchangeRate pproxy addFee = do
     (asks, bids) <- getDepthHelper pproxy
     let
-      sellt1 = applyFee bilaxyFee . make_sellt1_from_bidst1 bids
-      buyt1 = applyFee bilaxyFee . make_buyt1_from_askst1 asks
+      fee :: AmountRatio t t
+      fee = if addFee then bilaxyFee else 0
+      sellt1 = applyFee fee . make_sellt1_from_bidst1 bids
+      buyt1 = applyFee fee . make_buyt1_from_askst1 asks
       variance = undefined
     return $ ExchangeRate sellt1 buyt1 variance

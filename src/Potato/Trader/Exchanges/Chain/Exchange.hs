@@ -194,7 +194,8 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
       Right receipt          -> return $ OnChainOrder receipt ot (t1,t2)
 
   -- TODO test
-  getExchangeRate pnproxy = do
+  -- TODO add no fee version
+  getExchangeRate pnproxy isFee = if not isFee then undefined else do
     let
       nproxy = Proxy :: Proxy n
       t1nproxy = Proxy :: Proxy (t1,n)
@@ -205,8 +206,6 @@ instance ExchangePairConstraint t1 t2 n => ExchangePair t1 t2 (OnChain n) where
     t1b <- getBalanceOf t1nproxy uniAddr
     t2b <- getBalanceOf t2nproxy uniAddr
     let
-      -- TODO apply transaction fee, however, we need to know which one is the base token to do this
-      -- make it a function of Uniswap class since it already knows which token is which type
       sellt1 t1 = t1t2InputPriceWithTxFee (Proxy :: Proxy (BaseToken t1)) nproxy t1 t1b t2b
       buyt1 t2 = t1t2InputPriceWithTxFee (Proxy :: Proxy (BaseToken t2)) nproxy t2 t2b t1b
       variance = undefined

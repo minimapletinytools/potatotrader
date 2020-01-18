@@ -81,6 +81,7 @@ library:
     # exported for test suite, TODO make a separate test suite package so these aren't exported in the lib
     - Potato.Trader.Tests
     - Potato.Trader.Arbitrage.Tests
+    - Potato.Trader.MarketMaker.Tests
     - Potato.Trader.Exchanges.Bilaxy.Tests
     - Potato.Trader.Exchanges.Chain.Tests
 

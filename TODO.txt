@@ -1,13 +1,7 @@
-:: TODO TMRW::
--shuffle your balances around so you can arbitrage for real
--add warning for low liquidity in arbitrage D: ?
--market maker :O
-DONE-rename ExchangeData to ExchangeData
-DONE-rename ArbitrageParams
-DONE-rename Trader to just Trader
-
-
 ::TODO::
+-separate out some functions in market maker instead of using captures...
+-test market maker D:
+-add warning for low balance in arbitrage D: ?
 -consider adding MonadLogger stuff
 -actually use the account thing inside of Bilaxy.Query
 -add account support to Chain.Query
@@ -18,6 +12,11 @@ DONE-rename Trader to just Trader
 -test cases for flipExchange
 -remove mock monads from Bilaxy.Query, instead make interface using exposed IO methods of the module (e.g. getDepth, getBalance, etc)
   -and do the same for Chain.Query
+DONE-shuffle your balances around so you can arbitrage for real
+DONE-market maker :O
+DONE-rename ExchangeData to ExchangeData
+DONE-rename ArbitrageParams
+DONE-rename Trader to just Trader
 DONE-add arbitrage parameters struct to arbitrage
   IGNORE-add min purchase amount threshold for arbitrage orders
     -64 TT was definitely too little...

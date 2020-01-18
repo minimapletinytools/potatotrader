@@ -231,8 +231,8 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
     b2 <- getBalance (Proxy :: Proxy (t2,e))
     return $ Liquidity b1 b2
 
-  -- | returns the current exchange rate
-  getExchangeRate :: (MonadExchange m) => Proxy (t1,t2,e) -> ExchangeT e m (ExchangeRate t1 t2)
+  -- | returns the current exchange rate with or without fees
+  getExchangeRate :: (MonadExchange m) => Proxy (t1,t2,e) -> Bool -> ExchangeT e m (ExchangeRate t1 t2)
 
   -- | type family for the exchange's order type
   type Order t1 t2 e :: *

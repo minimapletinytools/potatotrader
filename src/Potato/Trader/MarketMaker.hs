@@ -2,7 +2,9 @@
 {-# LANGUAGE ConstraintKinds #-}
 
 module Potato.Trader.MarketMaker (
-  marketMaker
+  marketMaker,
+  MarketMakerParams(..),
+  MarketMakerConstraints,
 ) where
 
 import qualified Control.Concurrent.Thread.Group as TG
@@ -17,6 +19,8 @@ import qualified Data.Text                       as T
 import           Data.Time.Clock
 import           Potato.Trader.Helpers
 import           Potato.Trader.Types
+
+import           Debug.Trace
 
 
 -- | logging type for market maker
@@ -55,13 +59,13 @@ calcSpread exchRate sample_t1 = r where
   -- and then compute highestBidPrice as `x / sample_t1`
   -- instead we assume spread is small such that `(buyt1 exchRate) ((sellt1 exchRate) sample_t1) ~= sample_t1`
   sampleSell_t1 = sample_t1
-  sampleBought_t2 = (sellt1 exchRate) sampleSell_t1
+  sampleBought_t2 = sellt1 exchRate sampleSell_t1
   lowestAskPrice = makeRatio sampleBought_t2 sampleSell_t1 :: AmountRatio t2 t1
   sampleSell_t2 = sampleBought_t2
-  sampleBought_t1 = (buyt1 exchRate) sampleSell_t2
+  sampleBought_t1 = buyt1 exchRate sampleSell_t2
   highestBidPrice = makeRatio sampleSell_t2 sampleBought_t1 :: AmountRatio t2 t1
   spread = calcSpread_ highestBidPrice lowestAskPrice
-  r = (spread, highestBidPrice, lowestAskPrice)
+  r = trace (show highestBidPrice ++ " " ++ show lowestAskPrice) $ (spread, highestBidPrice, lowestAskPrice)
 
 data MarketMakerParams t1 t2 = MarketMakerParams {
     -- N.B. in practice, min order is used to sample market spread and max order is how much we arbitrage
@@ -69,13 +73,6 @@ data MarketMakerParams t1 t2 = MarketMakerParams {
     orderMinMax       :: (Amount t1, Amount t1) -- the min and max amount of t1 we'll buy at once in market making
     , minProfitMargin :: AmountRatio t2 t2 -- the minimum price ratio between bid and ask (spread) that is needed to attempt market making
     , makerMargin     :: (AmountRatio t2 t2, AmountRatio t2 t2) -- the amount to increase/decrease our bid/ask price when market making. Make sure the sum of this is less than minProfitMargin
-  }
-
-defTTUSDTMarketMakerParms :: MarketMakerParams TT USDT
-defTTUSDTMarketMakerParms = MarketMakerParams {
-    orderMinMax = (fromStdDenom 1000, fromStdDenom 3000)
-    , minProfitMargin = AmountRatio (0.00075*3)
-    , makerMargin = (AmountRatio 0.0007, AmountRatio 0.0007)
   }
 
 
@@ -107,12 +104,14 @@ marketMaker pproxy params = do
   tellString $ "BEGIN MARKET MAKER: " ++ show startTime
 
   -- query and cancel all orders
+  {-
   qncresult <- try $ cancelAllOrders (Proxy :: Proxy (t1,t2,e))
   case qncresult of
     Left (SomeException e) -> do
       tellString $ "exception when cancelling orders: " ++ show e
       throwM e
     Right _                -> return ()
+  -}
 
   -- query balances
   -- TODO no need to do error checking, it will be handled from outside
@@ -130,7 +129,7 @@ marketMaker pproxy params = do
 
   -- query exchange rate
   -- TODO no need to do error checking, it will be handled from outside
-  erresult <- try $ getExchangeRate pproxy
+  erresult <- try $ getExchangeRate pproxy False
   exchRate <- case erresult of
     Left (SomeException e) -> do
       --tellString $ "exception when querying exchange rate: " ++ show e
@@ -170,7 +169,7 @@ marketMaker pproxy params = do
           -- | loop to check our buy status
           checkBuy :: TG.ThreadGroup -> Order t1 t2 e -> Amount t1 -> ExchangeT e m ()
           checkBuy tg buyOrder alreadySelling = do
-            curExchRate <- getExchangeRate pproxy
+            curExchRate <- getExchangeRate pproxy False
 
             let
               cancelBid = do
@@ -215,7 +214,7 @@ marketMaker pproxy params = do
           -- we need to fork this so we force the inner monad to IO
           checkSell :: Order t1 t2 e -> ExchangeT e IO ()
           checkSell sellOrder = do
-            curExchRate <- getExchangeRate pproxy
+            curExchRate <- getExchangeRate pproxy False
             let (_, _, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
             OrderStatus os ot (origt1, origt2) exec <- getStatus (Proxy :: Proxy (t1,t2,e)) sellOrder
             case os of

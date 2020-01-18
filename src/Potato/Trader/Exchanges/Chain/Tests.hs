@@ -5,11 +5,10 @@ module Potato.Trader.Exchanges.Chain.Tests (
 import           Control.Monad.Reader
 import           Data.Proxy
 import           Potato.Trader.Exchanges.Chain.Exchange
-import           Potato.Trader.Exchanges.Chain.Query    hiding
-                                                               (getBalance)
+import           Potato.Trader.Exchanges.Chain.Query    hiding (getBalance)
 import           Potato.Trader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit                     (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit               (fromHUnitTest)
 import           Test.HUnit
 
 
@@ -32,7 +31,7 @@ test_getAddress = TestCase $ flipReaderT chainCtx $ liftIO $ do
 
 test_getExchangeRate :: Test
 test_getExchangeRate = TestCase $ flipReaderT chainCtx $ do
-  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain))
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,OnChain ThunderCoreMain)) True
   liftIO $ print r
 
 tests :: IO ()

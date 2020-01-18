@@ -3,14 +3,14 @@ module Potato.Trader.Exchanges.Bilaxy.Tests (
 ) where
 
 import           Control.Exception
-import qualified Control.Monad.Catch                        as C
+import qualified Control.Monad.Catch                  as C
 import           Control.Monad.Reader
 import           Data.Proxy
 import           Potato.Trader.Exchanges.Bilaxy
 import           Potato.Trader.Exchanges.Bilaxy.Query
 import           Potato.Trader.Types
 import           Test.Hspec
-import           Test.Hspec.Contrib.HUnit                   (fromHUnitTest)
+import           Test.Hspec.Contrib.HUnit             (fromHUnitTest)
 import           Test.HUnit
 
 bilaxyCtx :: (BilaxyData, BilaxyAccount)
@@ -53,7 +53,7 @@ test_getOrders = TestCase $ flip runReaderT bilaxyCtx $ do
 
 test_getExchangeRate :: Test
 test_getExchangeRate = TestCase $ flip runReaderT bilaxyCtx $ do
-  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy))
+  r <- getExchangeRate (Proxy :: Proxy (TT,USDT,Bilaxy)) True
   liftIO $ print r
 
 -- yes this actually makes an order and cancel it...

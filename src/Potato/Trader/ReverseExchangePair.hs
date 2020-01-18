@@ -8,7 +8,7 @@ module Potato.Trader.ReverseExchangePair (
 ) where
 
 import           Data.Proxy
-import           Data.Tuple                (swap)
+import           Data.Tuple          (swap)
 import           Potato.Trader.Types
 
 data ReverseExchangePair t2 t1 e = ReverseExchangePair
@@ -39,8 +39,8 @@ instance (ExchangePair t1 t2 e) => ExchangePair t2 t1 (ReverseExchangePair t2 t1
   liquidity _ = do
     Liquidity t1 t2 <- liquidity (Proxy :: Proxy (t1,t2,e))
     return $ Liquidity t2 t1
-  getExchangeRate _ = do
-    ExchangeRate sellt1' buyt1' variance' <- getExchangeRate (Proxy :: Proxy (t1,t2,e))
+  getExchangeRate _ isFee = do
+    ExchangeRate sellt1' buyt1' variance' <- getExchangeRate (Proxy :: Proxy (t1,t2,e)) isFee
     return $ ExchangeRate buyt1' sellt1' (flip variance')
   type Order t2 t1 (ReverseExchangePair t2 t1 e) = ReverseOrder (Order t1 t2 e)
   getOrders _ = fmap ReverseOrder <$> getOrders (Proxy :: Proxy (t1,t2,e))
