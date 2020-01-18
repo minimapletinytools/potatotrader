@@ -235,10 +235,8 @@ marketMaker pproxy params = do
             OrderStatus os ot (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) sellOrder
             let
               origSellPrice = makeRatio origt2 origt1
-            case os of
-              Executed -> return ()
-              -- If order has not gone through, check it's status and reorder if necessary
-              x | x == PartiallyExecuted || x == Pending -> do
+            -- If order has not gone through, check it's status and reorder if necessary
+            if os == PartiallyExecuted || os == Pending then do
                 reorder <-
                   -- if lower sell price is put in
                   if lowestAskPrice < origSellPrice then do
@@ -264,5 +262,6 @@ marketMaker pproxy params = do
                     checkSell newSellOrder
                 checkSell sellOrder
               -- otherwise, order did go through, we're done
-              _ -> return ()
+              else
+                return ()
   return ()
