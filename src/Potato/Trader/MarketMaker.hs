@@ -136,6 +136,7 @@ marketMaker pproxy params = do
 
   let
     (orderMin, orderMax) = orderMinMax params
+    greedReorderMargin = 1.5
     -- basic version to calculate spread just gets the price for a small order
     -- which is vulnerable to small orders aimed and reducing apparent spread
     -- a better version should use a dynamic order amount (based on avg order size say) to determine which price to use for computing spread
@@ -231,24 +232,37 @@ marketMaker pproxy params = do
           checkSell sellOrder = do
             curExchRate <- getExchangeRate pproxy False
             let (_, _, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
-            OrderStatus os ot (origt1, origt2) exec <- getStatus (Proxy :: Proxy (t1,t2,e)) sellOrder
+            OrderStatus os ot (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) sellOrder
+            let
+              origSellPrice = makeRatio origt2 origt1
             case os of
               Executed -> return ()
+              -- If order has not gone through, check it's status and reorder if necessary
               x | x == PartiallyExecuted || x == Pending -> do
-                -- if lower sell price is put in
-                if lowestAskPrice < makeRatio origt2 origt1 then do
-                  -- cancel sell order
+                reorder <-
+                  -- if lower sell price is put in
+                  if lowestAskPrice < origSellPrice then do
+                    liftIO $ putStrLn $ "lowest ask price has gone below our sell order, making new sell order"
+                    return True
+                  -- if lowest ask price has gone up enough
+                  else if origSellPrice < (modifyRatio lowestAskPrice (1-mmSell*greedReorderMargin)) then do
+                    liftIO $ putStrLn $ "lowest ask price has gone up enough, making new sell order"
+                    return True
+                  else
+                    return False
+                when reorder $ do
                   didCancel <- cancel pproxy sellOrder
                   liftIO $ putStrLn $ "cancelled bid: " ++ show didCancel
-                  -- TODO better logging here...
-                  when (calcSpread_ bidPrice lowestAskPrice < minSpread) $
-                    liftIO $ putStrLn $ "warning: ask price has dropped below spread threshold"
-                  -- still put in lower sell price to liquidate our inventory
-                  newSellOrder <- orderByPrice pproxy Rigid Sell (modifyRatio lowestAskPrice (1-mmSell)) origt1
-                  checkSell newSellOrder
-                --else if
-                  -- TODO if lowestAskPrice has gone up enough, cancel order and make a new one
-                else
-                  checkSell sellOrder
+                  -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
+                  if not didCancel then
+                    checkSell sellOrder
+                  else do
+                    when (calcSpread_ bidPrice lowestAskPrice < minSpread) $
+                      liftIO $ putStrLn $ "warning: ask price has dropped below spread threshold"
+                    -- TODO check that the new sell amount is not below the min sell amount
+                    newSellOrder <- orderByPrice pproxy Rigid Sell (modifyRatio lowestAskPrice (1-mmSell)) (origt1-exect1)
+                    checkSell newSellOrder
+                checkSell sellOrder
+              -- otherwise, order did go through, we're done
               _ -> return ()
   return ()
