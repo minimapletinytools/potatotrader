@@ -104,14 +104,12 @@ marketMaker pproxy params = do
   tellString $ "BEGIN MARKET MAKER: " ++ show startTime
 
   -- query and cancel all orders
-  {-
   qncresult <- try $ cancelAllOrders (Proxy :: Proxy (t1,t2,e))
   case qncresult of
     Left (SomeException e) -> do
       tellString $ "exception when cancelling orders: " ++ show e
       throwM e
     Right _                -> return ()
-  -}
 
   -- query balances
   -- TODO no need to do error checking, it will be handled from outside
