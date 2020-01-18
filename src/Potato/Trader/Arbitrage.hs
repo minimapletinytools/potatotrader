@@ -78,6 +78,8 @@ type ArbitrageConstraints t1 t2 e1 e2 m = (
   , MonadExchange m
   )
 
+type ArbitrageConstraints_ t1 t2 e1 e2 m = (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
+
 data ArbitrageParams t1 t2 = ArbitrageParams {
   dryRun            :: Bool -- if true, does not actually send transactions
   , minProfitAmount :: (Amount t1, Amount t2) -- only arbitrage if profit is >= minProfitAmount
@@ -98,7 +100,7 @@ data ArbitrageParams t1 t2 = ArbitrageParams {
 -- * profit_tiek - profit in ti tokens on exchange ek (after arbitrage with el and ek)
 --  e.g. profit_t1e2 - profit in t1 tokens on exchange e2
 --
-arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
+arbitrage :: forall t1 t2 e1 e2 m. (ArbitrageConstraints_ t1 t2 e1 e2 m)
   => Proxy (t1, t2, e1, e2)
   -> ArbitrageParams t1 t2
   -> ExchangePairT e1 e2 m (Maybe (Amount t1, Order t1 t2 e1, Order t1 t2 e2)) -- ^ returns tuple of profit and arbitrage orders if made, Nothing otherwise

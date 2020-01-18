@@ -69,6 +69,7 @@ dependencies:
 - parallel
 - deepseq
 - double-conversion
+- threads
 
 library:
   source-dirs: src

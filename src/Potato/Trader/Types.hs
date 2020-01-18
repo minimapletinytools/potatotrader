@@ -7,6 +7,8 @@
 
 
 module Potato.Trader.Types (
+
+  -- TODO move Amount stuff into its own module
   Amount(..),
   applyFee,
   AmountRatio(..),
@@ -16,6 +18,7 @@ module Potato.Trader.Types (
   (/$:$),
   ($:$*$:$),
   ($:$/$:$),
+
   Liquidity(..),
   OrderType(..),
   OrderFlex(..),
@@ -35,6 +38,7 @@ module Potato.Trader.Types (
   OrderState(..),
   OrderStatus(..),
   defOrderStatus,
+  orderByPrice,
 
   -- TODO move these to a different file
   TT,
@@ -253,7 +257,17 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   cancel :: (MonadExchange m) => Proxy (t1,t2,e) -> Order t1 t2 e -> ExchangeT e m Bool
   cancel _ _ = return False
 
-
+orderByPrice ::
+  (ExchangePair t1 t2 e, MonadExchange m)
+  => Proxy (t1,t2,e)
+  -> OrderFlex
+  -> OrderType
+  -> AmountRatio t2 t1 -- ^ price in t2
+  -> Amount t1 -- ^ volume in t1
+  -> ExchangeT e m (Order t1 t2 e)
+orderByPrice pproxy ofl ot price volume = order pproxy ofl ot at1 at2 where
+  at1 = volume
+  at2 = price $:$* volume
 
 
 
