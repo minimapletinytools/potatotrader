@@ -202,17 +202,24 @@ instance BilaxyExchangePairConstraints t1 t2 => ExchangePair t1 t2 Bilaxy where
         return [r]
       Flexible -> do
         let
+          -- dropping the first ask/bid should help ensure the order goes through
+          -- you could probably do a little better and drop based on price instead
+          (asks',bids') = (tail asks, tail bids)
           pvpairs = case ot of
             -- buying t1 with t2
-            Buy  -> make_buyPerPricet1_from_askst1 asks amount_t2
+            Buy  -> make_buyPerPricet1_from_askst1 asks' amount_t2
             -- selling t1 for t2
-            Sell -> make_toSellPerPricet1_from_bidst1 bids amount_t1
+            Sell -> make_toSellPerPricet1_from_bidst1 bids' amount_t1
+
           -- TODO test this!!!
           -- create a single order using lowest/highest price
           -- sadly, we have to do this because by splitting our orders over available prices, we may create an order below the min amount
           -- TODO better to fix this by combining the last two orders at min/max price if the last order amount is below the threshold
           minOrMax = if ot == Buy then max else min
+          -- N.B. it's possible that there were no bids/asks, in which case foldl1 will throw which is fine
           pvpairs_using_lowest = [foldl1 (\(minPrice, totalVolume) (pt2t1, vt1) -> (minOrMax minPrice pt2t1, totalVolume + vt1)) pvpairs]
+
+        -- make an order for each of our suborders
         forM pvpairs_using_lowest $ \pv@(pt2t1, vt1) -> liftIO . try $ do
           oid <- postOrder pair (toStdDenom vt1) (ratioToStdDenom pt2t1) ot
           return (oid, pv)

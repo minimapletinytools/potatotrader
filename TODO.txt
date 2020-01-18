@@ -1,3 +1,9 @@
+::final round::
+-finish market maker
+IGNORE-add flexible loss parameter
+-run arb and marketmaker...
+-add license and make public on github
+
 ::TODO::
 -separate out some functions in market maker instead of using captures...
 -test market maker D:
