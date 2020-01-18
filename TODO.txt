@@ -2,7 +2,7 @@
 -finish market maker
 IGNORE-add flexible loss parameter
 -run arb and marketmaker...
--add license and make public on github
+DONE-add license and make public on github
 
 ::TODO::
 -separate out some functions in market maker instead of using captures...
