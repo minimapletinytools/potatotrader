@@ -56,7 +56,7 @@ arbForever pproxy params profit ctx1 ctx2 = do
       print osl1
       print osl2
       -- in arbitrage, orders are expected to go through right away
-      if orderState osl1 /= Executed || orderState osl1 /= Executed then do
+      if orderState osl1 /= Executed || orderState osl2 /= Executed then do
         print "WARNING: order failed to execute"
         return profit
       else
