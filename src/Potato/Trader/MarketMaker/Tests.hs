@@ -26,7 +26,7 @@ import           Test.HUnit
 
 defTTUSDTMarketMakerParams :: MarketMakerParams TT USDT
 defTTUSDTMarketMakerParams = MarketMakerParams {
-    orderMinMax = (fromStdDenom 100 :: Amount TT, fromStdDenom 100)
+    orderMinMax = (fromStdDenom 150 :: Amount TT, fromStdDenom 150)
     --orderMinMax = (fromStdDenom 1000, fromStdDenom 3000)
     , minProfitMargin = AmountRatio (0.00075*3)
     , makerMargin = (AmountRatio 0.0007, AmountRatio 0.0007)
