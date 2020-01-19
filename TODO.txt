@@ -1,5 +1,5 @@
 ::final round::
--finish market maker
+DONE-finish market maker
 IGNORE-add flexible loss parameter
 -run arb and marketmaker...
 DONE-add license and make public on github
