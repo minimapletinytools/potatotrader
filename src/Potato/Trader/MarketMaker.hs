@@ -8,7 +8,7 @@ module Potato.Trader.MarketMaker (
   MarketMakerConstraints,
 ) where
 
-import           Control.Concurrent              (threadDelay)
+import           Control.Concurrent              (myThreadId, threadDelay)
 import qualified Control.Concurrent.Thread.Group as TG
 import           Control.Exception               (AssertionFailed (..))
 import           Control.Monad
@@ -288,12 +288,15 @@ checkSell pproxy params bidPrice askOrder alreadySold = do
     minSpread = minProfitMargin params
     (mmBuy, mmSell) = makerMargin params
 
+  tid <- liftIO myThreadId
   curExchRate <- getExchangeRate pproxy False
   let (_, _, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
   OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) askOrder
 
   let askPrice = makeRatio origt2 origt1
-  -- TODO log how much money we made ((askPrice - bidPrice) * (alreadySold - exect1))
+  -- log how much we made
+  when (alreadySold - exect1 > 0) $
+    liftIO $ putStrLn $ (show tid) ++ " sold " ++ show (alreadySold - exect1) ++ " at " ++ show askPrice ++ " over " ++ show bidPrice ++ " for a profit of " ++ show ((askPrice - bidPrice) $:$* (alreadySold - exect1))
 
   -- If order has not gone through, check it's status and reorder if necessary
   when (os == PartiallyExecuted || os == Pending) $ do
@@ -329,3 +332,5 @@ checkSell pproxy params bidPrice askOrder alreadySold = do
           checkSell pproxy params bidPrice newAskOrder exect1
     else
       checkSell pproxy params bidPrice askOrder exect1
+
+  liftIO $ putStrLn $ (show tid) ++ " checkSell done"
