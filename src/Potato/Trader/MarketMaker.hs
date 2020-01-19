@@ -1,5 +1,6 @@
-{-# LANGUAGE BlockArguments  #-}
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BlockArguments      #-}
+{-# LANGUAGE ConstraintKinds     #-}
 
 module Potato.Trader.MarketMaker (
   marketMaker,
@@ -65,7 +66,8 @@ calcSpread exchRate sample_t1 = r where
   sampleAskOutput_t1 = buyt1 exchRate sampleAskInput_t2
   lowestAskPrice = makeRatio sampleAskInput_t2 sampleAskOutput_t1
   spread = calcSpread_ highestBidPrice lowestAskPrice
-  r = trace (show highestBidPrice ++ " " ++ show lowestAskPrice) $ (spread, highestBidPrice, lowestAskPrice)
+  --r = trace (show highestBidPrice ++ " " ++ show lowestAskPrice) $ (spread, highestBidPrice, lowestAskPrice)
+  r = (spread, highestBidPrice, lowestAskPrice)
 
 data MarketMakerParams t1 t2 = MarketMakerParams {
     -- N.B. in practice, min order is used to sample market spread and max order is how much we arbitrage
@@ -90,11 +92,14 @@ marketMaker :: forall t1 t2 e m. (MarketMakerConstraints_ t1 t2 e m)
   -> ExchangeT e m ()
 marketMaker pproxy params = do
 
-  -- check that our parameters are good
+  -- load up params
   let
+    (orderMin, orderMax) = orderMinMax params
+    minSpread = minProfitMargin params
     (mmBuy, mmSell) = makerMargin params
-    good = mmBuy + mmSell < minProfitMargin params
-  case good of
+
+  -- check that our parameters are good
+  case mmBuy + mmSell < minProfitMargin params of
     False -> do
       tellString $ "bad parameters"
       throwM $ AssertionFailed "bad parameters"
@@ -135,14 +140,12 @@ marketMaker pproxy params = do
     Right r                -> return r
 
   let
-    (orderMin, orderMax) = orderMinMax params
-    greedReorderMargin = 1.5
     -- basic version to calculate spread just gets the price for a small order
     -- which is vulnerable to small orders aimed and reducing apparent spread
     -- a better version should use a dynamic order amount (based on avg order size say) to determine which price to use for computing spread
     -- TODO use average order size over last 24 hours here instead
     (spread, highestBidPrice, _) = calcSpread exchRate (orderMin `div` 4)
-    minSpread = minProfitMargin params
+
 
   -- helpful warning message
   when (spread <= 0) $ tellString "negative spread, are perhaps you are trying to do run this on an algorithmic market maker exchange like uniswap? 😂"
@@ -151,142 +154,178 @@ marketMaker pproxy params = do
   if spread < minSpread then
     tellString $ "spread too low, spread: " ++ show spread ++ " minSpread: " ++ show minSpread
   else do
-    ctx <- ask
+
+    -- TODO wrap this all up in a function..
     let
       bidPrice = modifyRatio highestBidPrice (1+mmBuy)
       bidAmount = min orderMax (b_t2 /$:$ bidPrice)
     when (bidAmount < orderMin) $ throwM (AssertionFailed "insufficient balance to arbitrage")
     liftIO . putStrLn $ "making order for " ++ show bidAmount ++ " at " ++ show bidPrice
-
-    -- place a Rigid t1 buy order
     mo <- try $ orderByPrice pproxy Rigid Buy bidPrice bidAmount
     case mo of
       Left (SomeException e) -> do
         tellString $ "failed to make order: " ++ show e
         throwM e
-      Right origBuyOrder -> do
+      Right bidOrder -> do
         tg <- liftIO TG.new
-        checkBuy tg origBuyOrder bidAmount 0 where
-          -- | loop to check our buy status
-          checkBuy :: TG.ThreadGroup -> Order t1 t2 e -> Amount t1 -> Amount t1 -> ExchangeT e m ()
-          checkBuy tg buyOrder origBuyAmount alreadySelling = do
-            liftIO . putStrLn $ "checking buy order status, amount selling: " ++ show alreadySelling
-            curExchRate <- getExchangeRate pproxy False
-
-            let
-              (newSpread, highestBidPrice, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
-              spreadFromPrevBid = calcSpread_ bidPrice lowestAskPrice
-
-            -- get the order status
-            OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus pproxy buyOrder
-
-            let
-              origBuyPrice = makeRatio origt2 origt1
-            -- if order was executed, put in a sell order
-            when (os == Executed || os == PartiallyExecuted) $ do
-              let
-                sellAmount = (exect1-alreadySelling)
-                sellPrice = (modifyRatio lowestAskPrice (1-mmSell))
-              -- TODO make sure that the sell amount is above the minimum sell amount (if not, just don't sell w/e)
-              liftIO . putStrLn $ "selling at " ++ show sellPrice ++ " " ++ show sellAmount
-              -- how to do error case here?
-              -- put in sell order of executed amount at price just below lowest sell price
-              makerSell <- orderByPrice pproxy Rigid Sell sellPrice sellAmount
-              -- start a loop to check our sell status
-              liftIO $ TG.forkIO tg (flip runReaderT ctx $ checkSell makerSell sellAmount 0)
-              -- helpful logging message
-              when (os == Executed) $
-                liftIO $ putStrLn $ "buy order fully executed, waiting for sell orders to finalize"
-
-            -- if order was not fully executed, check if we need to put in a new one
-            (continue, newBuyOrder, newAlreadySelling) <- if os == PartiallyExecuted || os == Pending then do
-              reorder <-
-                if spreadFromPrevBid < minSpread then do
-                  liftIO $ putStrLn $ "ask price dropped and brought spread below threshold, spread: " ++ show spreadFromPrevBid ++ ", minSpread: " ++ show minSpread
-                  return True
-                -- if highest bid price has passed our bid
-                else if highestBidPrice > bidPrice then do
-                  liftIO $ putStrLn $ "bid price passed maker bid: " ++ show bidPrice ++ ", new highest bid price: " ++ show highestBidPrice
-                  return True
-                -- if highestBidPrice has gone down enough, cancel order and make a new one
-                else if origBuyPrice > modifyRatio highestBidPrice (1+mmBuy*greedReorderMargin) then do
-                  liftIO $ putStrLn $ "highest bid price has down enough, making new sell order"
-                  return True
-                else
-                  return False
-
-              if reorder then do
-                didCancel <- cancel pproxy buyOrder
-                liftIO $ putStrLn $ "cancelled bid: " ++ show didCancel
-                -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
-                if not didCancel then
-                  return (True, buyOrder, alreadySelling)
-                else do
-                  -- TODO only proceed if new spread is > minSpread
-                  let
-                    newBidPrice = modifyRatio highestBidPrice (1+mmBuy)
-                    newBidAmount = origBuyAmount - (alreadySelling + exect1)
-                  liftIO $ putStrLn $ "making order for " ++ show newBidAmount ++ " at " ++ show newBidPrice
-                  newBuyOrder <- orderByPrice pproxy Rigid Buy newBidPrice bidAmount
-                  return (True, newBuyOrder, (alreadySelling+exect1))
-              else
-                return (True, buyOrder, alreadySelling)
-            -- order went through or messed up, wait for all checkSells to finish and quit
-            else
-              return (False, undefined, undefined)
-
-            -- loop or exit
-            if continue then do
-              -- wait 1/5th of a second
-              -- TODO parameterize
-              liftIO $ threadDelay (floor 2e5)
-              checkBuy tg newBuyOrder origBuyAmount newAlreadySelling
-            else do
-              liftIO $ putStrLn "checkBuy done, waiting for all checkSells to join"
-              liftIO $ TG.wait tg
-              return ()
-
-          -- | loop to check our sell order status
-          -- we need to fork this so we force the inner monad to IO
-          checkSell :: Order t1 t2 e -> Amount t1 -> Amount t1 -> ExchangeT e IO ()
-          checkSell sellOrder origSellAmount alreadySold = do
-            curExchRate <- getExchangeRate pproxy False
-            let (_, _, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
-            OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) sellOrder
-            let
-              origSellPrice = makeRatio origt2 origt1
-            -- If order has not gone through, check it's status and reorder if necessary
-            if os == PartiallyExecuted || os == Pending then do
-                reorder <-
-                  -- if lower sell price is put in
-                  if lowestAskPrice < origSellPrice then do
-                    liftIO $ putStrLn $ "lowest ask price has gone below our sell order, making new sell order"
-                    return True
-                  -- if lowest ask price has gone up enough
-                  else if origSellPrice < (modifyRatio lowestAskPrice (1-mmSell*greedReorderMargin)) then do
-                    liftIO $ putStrLn $ "lowest ask price has gone up enough, making new sell order"
-                    return True
-                  else
-                    return False
-                if reorder then do
-                  didCancel <- cancel pproxy sellOrder
-                  liftIO $ putStrLn $ "cancelled bid: " ++ show didCancel
-                  -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
-                  if not didCancel then
-                    checkSell sellOrder origSellAmount alreadySold
-                  else do
-                    when (calcSpread_ bidPrice lowestAskPrice < minSpread) $
-                      liftIO $ putStrLn $ "warning: ask price has dropped below spread threshold"
-                    let
-                      sellAmount = origSellAmount-(alreadySold + exect1)
-                      sellPrice = modifyRatio lowestAskPrice (1-mmSell)
-                    liftIO . putStrLn $ "new sell order at " ++ show sellPrice ++ " " ++ show sellAmount
-                    -- TODO check that the new sell amount is not below the min sell amount
-                    newSellOrder <- orderByPrice pproxy Rigid Sell sellPrice sellAmount
-                    checkSell newSellOrder origSellAmount (alreadySold + exect1)
-                else
-                  checkSell sellOrder origSellAmount alreadySold
-              -- otherwise, order did go through, we're done
-              else
-                return ()
+        checkBuy pproxy params tg bidOrder 0
   return ()
+
+-- | loop to check our buy status
+checkBuy :: forall t1 t2 e m. (MarketMakerConstraints_ t1 t2 e m)
+  => Proxy (t1, t2, e)
+  -> MarketMakerParams t1 t2
+  -> TG.ThreadGroup -- ^ thread group used to track checkSell loops
+  -> Order t1 t2 e -- ^ the bid order we are checking
+  -> Amount t1 -- ^ the amount of the bid order we've already bought and place ask orders for (needed for 'PartiallyExecuted' orders)
+  -> ExchangeT e m ()
+checkBuy pproxy params tg bidOrder alreadyAsking = do
+  -- load up params
+  let
+    greedReorderMargin = 1.5
+    (orderMin, orderMax) = orderMinMax params
+    minSpread = minProfitMargin params
+    (mmBuy, mmSell) = makerMargin params
+
+  liftIO . putStrLn $ "checking buy order status, amount selling: " ++ show alreadyAsking
+  curExchRate <- getExchangeRate pproxy False
+  OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus pproxy bidOrder
+
+  let
+    bidPrice = makeRatio origt2 origt1
+    (newSpread, highestBidPrice, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
+    prevHighestBidPrice = modifyRatio bidPrice (1/(1+mmBuy))
+    spreadFromPrevBid = calcSpread_ prevHighestBidPrice lowestAskPrice
+
+  -- if order was executed, put in a sell order
+  when (os == Executed || os == PartiallyExecuted) $ do
+    let
+      -- If the order was previously 'PartiallyExecuted' some of the bought t1 from this order has already been sold so substract this amount
+      askAmount = (exect1-alreadyAsking)
+      askPrice = (modifyRatio lowestAskPrice (1-mmSell))
+    -- TODO make sure that the ask amount is above the minimum ask amount (if not, just don't sell w/e)
+    -- only make a ask order if we actually bought more
+    when (askAmount > 0) $ do
+      liftIO . putStrLn $ "selling at " ++ show askPrice ++ " " ++ show askAmount
+      -- put in sell order of executed amount at price just below lowest sell price
+      askOrder <- orderByPrice pproxy Rigid Sell askPrice askAmount
+      -- FUTURE handle order exceptions here
+      -- start a loop to check our sell status
+      ctx <- ask
+      liftIO $ TG.forkIO tg (flip runReaderT ctx $ checkSell pproxy params bidPrice askOrder 0)
+      -- helpful logging message
+      when (os == Executed) $
+        liftIO $ putStrLn $ "bid order fully executed"
+
+  -- if order was not fully executed, check if we need to put in a new one
+  (continue, newBidOrder) <- if os == PartiallyExecuted || os == Pending then do
+    reorder <-
+      if spreadFromPrevBid < minSpread then do
+        liftIO $ putStrLn $ "ask price dropped and brought spread below threshold, spread: " ++ show spreadFromPrevBid ++ ", minSpread: " ++ show minSpread
+        return True
+      -- if highest bid price has passed our bid
+      else if highestBidPrice > bidPrice then do
+        liftIO $ putStrLn $ "bid price passed our bid: " ++ show bidPrice ++ ", new highest bid price: " ++ show highestBidPrice
+        return True
+      -- if highestBidPrice has gone down enough, cancel order and make a new one
+      else if bidPrice > modifyRatio highestBidPrice (1+mmBuy*greedReorderMargin) then do
+        liftIO $ putStrLn $ "highest bid price has down enough, making new bid order"
+        return True
+      else
+        return False
+
+    if reorder then do
+      didCancel <- cancel pproxy bidOrder
+      -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
+      if not didCancel then do
+        liftIO $ putStrLn $ "failed to cancel bid"
+        return (True, bidOrder)
+      else do
+        liftIO $ putStrLn $ "cancelled bid"
+        if newSpread < minSpread then do
+          let
+            newBidPrice = modifyRatio highestBidPrice (1+mmBuy)
+            newBidAmount = origt1 - exect1
+          -- TODO make sure newBidAmount is not below our minimum bid amount of the exchange
+          liftIO $ putStrLn $ "making order for " ++ show newBidAmount ++ " at " ++ show newBidPrice
+          newBidOrder <- orderByPrice pproxy Rigid Buy newBidPrice newBidAmount
+          return (True, newBidOrder)
+        else do
+          -- new spread is no longer profitable, wait for all checkSells to finish and quit
+          liftIO $ putStrLn $ "new spread no longer profitable"
+          return (False, undefined)
+    else
+      return (True, bidOrder)
+  -- order went through or messed up, wait for all checkSells to finish and quit
+  else
+    return (False, undefined)
+
+  -- loop or exit
+  if continue then do
+    -- wait 1/5th of a second
+    -- TODO parameterize
+    liftIO $ threadDelay (floor 2e5)
+    checkBuy pproxy params tg newBidOrder exect1
+  else do
+    liftIO $ putStrLn "checkBuy done, waiting for all checkSells to join"
+    liftIO $ TG.wait tg
+    return ()
+
+-- | loop to check our sell order status
+-- we need to fork this so we force the inner monad to IO
+checkSell :: forall t1 t2 e. (MarketMakerConstraints t1 t2 e IO)
+  => Proxy (t1, t2, e)
+  -> MarketMakerParams t1 t2
+  -> AmountRatio t2 t1 -- ^ the bid price we paid for the inventory we are selling here
+  -> Order t1 t2 e -- ^ the ask order we are checking
+  -> Amount t1 -- ^ the amount of the ask order that's already been bought (needed for 'PartiallyExecuted' orders)
+  -> ExchangeT e IO ()
+checkSell pproxy params bidPrice askOrder alreadySold = do
+  -- load up params
+  let
+    greedReorderMargin = 1.5
+    (orderMin, orderMax) = orderMinMax params
+    minSpread = minProfitMargin params
+    (mmBuy, mmSell) = makerMargin params
+
+  curExchRate <- getExchangeRate pproxy False
+  let (_, _, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
+  OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) askOrder
+
+  let askPrice = makeRatio origt2 origt1
+  -- TODO log how much money we made ((askPrice - bidPrice) * (alreadySold - exect1))
+
+  -- If order has not gone through, check it's status and reorder if necessary
+  when (os == PartiallyExecuted || os == Pending) $ do
+    reorder <-
+      -- if lower sell price is put in
+      if lowestAskPrice < askPrice then do
+        liftIO $ putStrLn $ "lowest ask price has gone below our sell order, making new sell order"
+        return True
+      -- if lowest ask price has gone up enough
+      else if askPrice < modifyRatio lowestAskPrice (1-mmSell*greedReorderMargin) then do
+        liftIO $ putStrLn $ "lowest ask price has gone up enough, making new sell order"
+        return True
+      else
+        return False
+    if reorder then do
+      didCancel <- cancel pproxy askOrder
+      if not didCancel then do
+        -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
+        liftIO $ putStrLn $ "failed to cancel bid"
+        checkSell pproxy params bidPrice askOrder exect1
+      else do
+        liftIO $ putStrLn $ "cancelled bid"
+        -- log a helpful message to indicate we are losing money
+        when (calcSpread_ bidPrice lowestAskPrice < minSpread) $
+          liftIO $ putStrLn $ "warning: ask price has dropped below spread threshold (possible loss)"
+        let
+          askAmount = origt1 - exect1
+          askPrice = modifyRatio lowestAskPrice (1-mmSell)
+        -- TODO check that the new sell amount is not below the min sell amount
+        when (askAmount > 0) $ do
+          liftIO . putStrLn $ "new sell order at " ++ show askPrice ++ " " ++ show askAmount
+          newAskOrder <- orderByPrice pproxy Rigid Sell askPrice askAmount
+          checkSell pproxy params bidPrice newAskOrder exect1
+    else
+      checkSell pproxy params bidPrice askOrder exect1

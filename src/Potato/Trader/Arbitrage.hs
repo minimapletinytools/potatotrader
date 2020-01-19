@@ -71,13 +71,9 @@ lifte2 a = ReaderT $ \(_,c2) -> runReaderT a c2
 -- | monad type used for arbitrage which allows operating on two exchanges at the same time
 type ExchangePairT e1 e2 m = ReaderT (CtxPair e1 e2) m
 
+-- can't remember why this is split into two
 -- | constraint kind needed for arbitrage operations
-type ArbitrageConstraints t1 t2 e1 e2 m = (
-  ExchangePair t1 t2 e1
-  , ExchangePair t1 t2 e2
-  , MonadExchange m
-  )
-
+type ArbitrageConstraints t1 t2 e1 e2 m = (ExchangePair t1 t2 e1, ExchangePair t1 t2 e2, MonadExchange m)
 type ArbitrageConstraints_ t1 t2 e1 e2 m = (ArbitrageConstraints t1 t2 e1 e2 m, MonadWriter [T.Text] (ExchangePairT e1 e2 m))
 
 data ArbitrageParams t1 t2 = ArbitrageParams {
@@ -91,6 +87,7 @@ data ArbitrageParams t1 t2 = ArbitrageParams {
 -- does not attempt to do any recovery on failure so it's possible that one arbtriage order went through and the other did not
 --
 -- arbitrage only profits in t1, to profit on t2, call arbitrage using 'ReverseExchangePair'
+-- note it's a little strange, because by convention, t1 is the security and t2 is the stable currency and you usually want to profit on the stable currency
 --
 -- arbitrage terminology
 -- * b_tiek - balance in ti tokens on ek
