@@ -1,8 +1,8 @@
-::final round::
-DONE-finish market maker
-IGNORE-add flexible loss parameter
--run arb and marketmaker...
-DONE-add license and make public on github
+::MM Bugs::
+-the way already sold and exect1 is not calculated right in both checkbuy and checksell
+  -need to distinguish between a new sell order and a partially executed sell order
+    -one way to fix this is to always put in a new sell order, but that won't handle the case where the cancel operation fails...
+
 
 ::TODO::
 -separate out some functions in market maker instead of using captures...
@@ -18,6 +18,9 @@ DONE-add license and make public on github
 -test cases for flipExchange
 -remove mock monads from Bilaxy.Query, instead make interface using exposed IO methods of the module (e.g. getDepth, getBalance, etc)
   -and do the same for Chain.Query
+DONE-finish market maker
+IGNORE-add flexible loss parameter
+DONE-add license and make public on github
 DONE-shuffle your balances around so you can arbitrage for real
 DONE-market maker :O
 DONE-rename ExchangeData to ExchangeData

@@ -174,7 +174,7 @@ marketMaker pproxy params = do
             curExchRate <- getExchangeRate pproxy False
 
             let
-              (_, highestBidPrice, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
+              (newSpread, highestBidPrice, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
               spreadFromPrevBid = calcSpread_ bidPrice lowestAskPrice
 
             -- get the order status
@@ -222,11 +222,12 @@ marketMaker pproxy params = do
                 if not didCancel then
                   return (True, buyOrder, alreadySelling)
                 else do
+                  -- TODO only proceed if new spread is > minSpread
                   let
-                    bidPrice = modifyRatio highestBidPrice (1+mmBuy)
-                    bidAmount = origBuyAmount - (alreadySelling + exect1)
-                  liftIO $ putStrLn $ "making order for " ++ show bidAmount ++ " at " ++ show bidPrice
-                  newBuyOrder <- orderByPrice pproxy Rigid Buy bidPrice bidAmount
+                    newBidPrice = modifyRatio highestBidPrice (1+mmBuy)
+                    newBidAmount = origBuyAmount - (alreadySelling + exect1)
+                  liftIO $ putStrLn $ "making order for " ++ show newBidAmount ++ " at " ++ show newBidPrice
+                  newBuyOrder <- orderByPrice pproxy Rigid Buy newBidPrice bidAmount
                   return (True, newBuyOrder, (alreadySelling+exect1))
               else
                 return (True, buyOrder, alreadySelling)
