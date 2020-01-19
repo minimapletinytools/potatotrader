@@ -21,7 +21,7 @@ arbitrage :: (ExchangePair t1 t2 e1, ExchangePair t1 t2 e2) => ...
 
 Potato Trader currently supports the following trading algorithms:
 - arbitrage
-- market making (WIP)
+- market maker (needs testing)
 
 And supports the following exchanges:
 - Uniswap (on any Web3 compatible blockchain)
@@ -31,6 +31,5 @@ Once an exchange is implemented, supported tokens and trading pairs must be (eas
 
 Some planned features that aren't implemented yet:
 - accounts are currently read unencrypted from a file directly inside the library. This is solved with `ExchangeAccount` type family but it hasn't been fully integrated yet
-  - and since my key.txt file is in .gitignore, CircleCI is failing
-    - of course, this problem could also be solved with the feature in the next bullet point
 - better test cases for effectful code using [test-fixture](https://lexi-lambda.github.io/blog/2017/06/29/unit-testing-effectful-haskell-with-monad-mock/)
+  - note that the current tests require a key file and communicate with live exchanges D:

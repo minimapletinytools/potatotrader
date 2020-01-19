@@ -57,6 +57,21 @@ IGNORE-write tests to ascertain units and exchange rate stuff is done correctly
 - add mock interfaces for all IO monad calls for testing instead of actually querying exchanges...
 
 :: TEST DATA ::
+=====BEGIN ARBITRAGE ROUND=====
+PROFITS: (0.125376 USDT,-2.2137e-2 USDT,627.772186 USDT,63.644697 USDT)
+selling 627772186 tokens for 86889.59630238837 ether time 1579406979
+"BEGIN ARBITRAGE: 2020-01-19 04:09:38.943648 UTC"
+"BALANCES: (627.772186 USDT,99646.63457865437 TT,3918.020899 USDT,740646.18 TT)"
+"RAN PROFIT USDT:TT:USDT ThunderCore mainnet to Bilaxy: (627.772186 USDT,91462.73294988248 TT,691.416883 USDT)"
+"ACTUAL PROFIT: 63.644697 USDT"
+"END ARBITRAGE: 2020-01-19 04:09:43.351741 UTC"
+=====ORDER STATUS=====
+OrderStatus {orderState = Executed, orderType = Sell, orderOrigAmount = (627.772186 USDT,91462.73294988248 TT), orderExecAmount = (627.772186 USDT,91462.73294988248 TT)}
+OrderStatus {orderState = Executed, orderType = Buy, orderOrigAmount = (691.416883 USDT,91462.73294988248 TT), orderExecAmount = (690.54565 USDT,91463.0 TT)}
+=====END ARBITRAGE ROUND=====
+total profit is 63.644697 USDT
+
+
 ::1-14 8:00pm::
 PROFITS: (0.116612 USDT,-5.79e-3 USDT,128.10924 USDT,2.07371 USDT)
 selling 128109240 tokens for 17583.88261074895 ether time 1579061065

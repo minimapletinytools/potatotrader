@@ -1,0 +1,184 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: afa44b349f38a5c8bee81d4a60bf87f7b2814c4cca4ed8095dd1975b6d103921
+
+name:           potatotrader
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/bilaxypotato#readme>
+homepage:       https://github.com/pdlla/potatotrader#readme
+bug-reports:    https://github.com/pdlla/potatotrader/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2019 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/pdlla/potatotrader
+
+library
+  exposed-modules:
+      Potato.Trader
+      Potato.Trader.Exchanges.Bilaxy
+      Potato.Trader.Exchanges.Chain
+      Potato.Trader.Tests
+      Potato.Trader.Arbitrage.Tests
+      Potato.Trader.MarketMaker.Tests
+      Potato.Trader.Exchanges.Bilaxy.Tests
+      Potato.Trader.Exchanges.Chain.Tests
+  other-modules:
+      Potato.Trader.Arbitrage
+      Potato.Trader.Exchanges.Bilaxy.Account
+      Potato.Trader.Exchanges.Bilaxy.Aeson
+      Potato.Trader.Exchanges.Bilaxy.Exchange
+      Potato.Trader.Exchanges.Bilaxy.Query
+      Potato.Trader.Exchanges.Chain.Exchange
+      Potato.Trader.Exchanges.Chain.Query
+      Potato.Trader.Helpers
+      Potato.Trader.MarketMaker
+      Potato.Trader.ReverseExchangePair
+      Potato.Trader.Types
+      Paths_potatotrader
+  hs-source-dirs:
+      src
+  default-extensions: InstanceSigs LambdaCase OverloadedStrings GADTs DeriveFunctor DeriveFoldable DeriveGeneric DeriveTraversable FlexibleInstances FlexibleContexts ScopedTypeVariables MultiWayIf TupleSections MultiParamTypeClasses
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+  build-depends:
+      HUnit
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , cryptohash
+    , deepseq
+    , double-conversion
+    , exceptions
+    , hspec
+    , hspec-contrib
+    , http-conduit
+    , microlens
+    , mtl
+    , parallel
+    , retry
+    , sort
+    , text
+    , threads
+    , time
+    , utf8-string
+    , vector
+    , web3
+  default-language: Haskell2010
+
+executable arbitrage
+  main-is: arbitrage.hs
+  other-modules:
+      Paths_potatotrader
+  hs-source-dirs:
+      app
+  default-extensions: InstanceSigs LambdaCase OverloadedStrings GADTs DeriveFunctor DeriveFoldable DeriveGeneric DeriveTraversable FlexibleInstances FlexibleContexts ScopedTypeVariables MultiWayIf TupleSections MultiParamTypeClasses
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , cryptohash
+    , deepseq
+    , double-conversion
+    , exceptions
+    , hspec
+    , hspec-contrib
+    , http-conduit
+    , microlens
+    , mtl
+    , parallel
+    , potatotrader
+    , retry
+    , sort
+    , text
+    , threads
+    , time
+    , utf8-string
+    , vector
+    , web3
+  default-language: Haskell2010
+
+executable marketmaker
+  main-is: marketmaker.hs
+  other-modules:
+      Paths_potatotrader
+  hs-source-dirs:
+      app
+  default-extensions: InstanceSigs LambdaCase OverloadedStrings GADTs DeriveFunctor DeriveFoldable DeriveGeneric DeriveTraversable FlexibleInstances FlexibleContexts ScopedTypeVariables MultiWayIf TupleSections MultiParamTypeClasses
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , cryptohash
+    , deepseq
+    , double-conversion
+    , exceptions
+    , hspec
+    , hspec-contrib
+    , http-conduit
+    , microlens
+    , mtl
+    , parallel
+    , potatotrader
+    , retry
+    , sort
+    , text
+    , threads
+    , time
+    , utf8-string
+    , vector
+    , web3
+  default-language: Haskell2010
+
+test-suite potatotrader-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_potatotrader
+  hs-source-dirs:
+      test
+  default-extensions: InstanceSigs LambdaCase OverloadedStrings GADTs DeriveFunctor DeriveFoldable DeriveGeneric DeriveTraversable FlexibleInstances FlexibleContexts ScopedTypeVariables MultiWayIf TupleSections MultiParamTypeClasses
+  ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , cryptohash
+    , deepseq
+    , double-conversion
+    , exceptions
+    , hspec
+    , hspec-contrib
+    , http-conduit
+    , microlens
+    , mtl
+    , parallel
+    , potatotrader
+    , retry
+    , sort
+    , text
+    , threads
+    , time
+    , utf8-string
+    , vector
+    , web3
+  default-language: Haskell2010

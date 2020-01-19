@@ -1,7 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
-module Main where
-
 import           Potato.Trader
 import           Potato.Trader.Exchanges.Bilaxy
 import           Potato.Trader.Exchanges.Chain
@@ -14,8 +12,8 @@ import           Data.Proxy
 import qualified Data.Text                      as T
 
 
-type ArbMonad t1 t2 = ExchangePairT t1 t2 (WriterT ArbitrageLogs IO)
-arbForever :: forall t1 t2 e1 e2. (ArbitrageConstraints t1 t2 e1 e2 (ArbMonad t1 t2))
+type ArbMonad e1 e2 = ExchangePairT e1 e2 (WriterT ArbitrageLogs IO)
+arbForever :: forall t1 t2 e1 e2. (ArbitrageConstraints t1 t2 e1 e2 (ArbMonad e1 e2))
   => Proxy (t1,t2,e1,e2)
   -> ArbitrageParams t1 t2
   -> Amount t1
@@ -87,10 +85,3 @@ main = do
         , minProfitAmount = (fromStdDenom 0.05 :: Amount USDT, fromStdDenom 15 :: Amount TT)
       }
   arbForever p params 0 ((),()) ((),nilKey)
-
-
-
---main = Potato.Trader.Exchanges.Bilaxy.recordDepth 151 10
---main = Potato.Trader.Exchanges.Bilaxy.testBalance
---main = Potato.Trader.Exchanges.Bilaxy.testDepth
---main = Potato.Trader.Exchanges.Chain.testTransaction
