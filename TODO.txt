@@ -1,9 +1,3 @@
-::MM Bugs::
--the way already sold and exect1 is not calculated right in both checkbuy and checksell
-  -need to distinguish between a new sell order and a partially executed sell order
-    -one way to fix this is to always put in a new sell order, but that won't handle the case where the cancel operation fails...
-
-
 ::TODO::
 -separate out some functions in market maker instead of using captures...
 -test market maker D:
@@ -18,6 +12,9 @@
 -test cases for flipExchange
 -remove mock monads from Bilaxy.Query, instead make interface using exposed IO methods of the module (e.g. getDepth, getBalance, etc)
   -and do the same for Chain.Query
+DONE-the way already sold and exect1 is not calculated right in both checkbuy and checksell
+  -need to distinguish between a new sell order and a partially executed sell order
+    -one way to fix this is to always put in a new sell order, but that won't handle the case where the cancel operation fails...
 DONE-finish market maker
 IGNORE-add flexible loss parameter
 DONE-add license and make public on github

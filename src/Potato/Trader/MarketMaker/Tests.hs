@@ -10,6 +10,10 @@ import           Test.Hspec.Contrib.HUnit (fromHUnitTest)
 import           Test.HUnit
 
 
+-- TODO
+--testCheckBuy
+--testCheckSell
+
 testMarketMaker :: Test
 testMarketMaker = TestCase $ do
   -- TODO
