@@ -223,7 +223,7 @@ postOrder pair amount price orderType = do
   kp <- readKeys
   BA.TradeExecResult code oid <- makeRequest kp oldGateway "POST" "/v1/trade"
     -- TODO this is wrong, hardcode to work with TT/USDT pairs right now...
-    [("symbol", showBS pair),("amount", toFixed 0 amount),("price", toFixed 5 price),("type", ot)]
+    [("symbol", showBS pair),("amount", toFixed 0 amount),("price", toFixed 6 price),("type", ot)]
   return oid
 
 -- TODO if order id does not exist returns {"code":"401","data":null}

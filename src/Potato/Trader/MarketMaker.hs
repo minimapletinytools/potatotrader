@@ -130,37 +130,30 @@ marketMaker pproxy params = do
 
   tellString $ "BALANCES: " ++ show (b_t1, b_t2)
 
-  -- query exchange rate
-  -- TODO no need to do error checking, it will be handled from outside
-  erresult <- try $ getExchangeRate pproxy False
-  exchRate <- case erresult of
-    Left (SomeException e) -> do
-      --tellString $ "exception when querying exchange rate: " ++ show e
-      throwM e
-    Right r                -> return r
-
+  exchRate <- getExchangeRate pproxy False
   let
     -- basic version to calculate spread just gets the price for a small order
     -- which is vulnerable to small orders aimed and reducing apparent spread
     -- a better version should use a dynamic order amount (based on avg order size say) to determine which price to use for computing spread
     -- TODO use average order size over last 24 hours here instead
-    (spread, highestBidPrice, _) = calcSpread exchRate (orderMin `div` 4)
-
+    (spread, highestBidPrice, lowestAskPrice) = calcSpread exchRate (orderMin `div` 4)
 
   -- helpful warning message
-  when (spread <= 0) $ tellString "negative spread, are perhaps you are trying to do run this on an algorithmic market maker exchange like uniswap? 😂"
+  when (spread <= 0) $ liftIO $ putStrLn "negative spread, are perhaps you are trying to do run this on an algorithmic market maker exchange like uniswap? 😂"
 
   -- proceed only if spread is above our minimum
   if spread < minSpread then
-    tellString $ "spread too low, spread: " ++ show spread ++ " minSpread: " ++ show minSpread
+    liftIO $ putStrLn $ "spread too low, spread: " ++ show spread ++ " minSpread: " ++ show minSpread
   else do
+
+    liftIO $ putStrLn $ "market making potential (bid, ask, spread): " ++ show (spread, highestBidPrice, lowestAskPrice)
 
     -- TODO wrap this all up in a function..
     let
       bidPrice = modifyRatio highestBidPrice (1+mmBuy)
       bidAmount = min orderMax (b_t2 /$:$ bidPrice)
     when (bidAmount < orderMin) $ throwM (AssertionFailed "insufficient balance to arbitrage")
-    liftIO . putStrLn $ "making order for " ++ show bidAmount ++ " at " ++ show bidPrice
+    liftIO . putStrLn $ "making bid order for " ++ show bidAmount ++ " at " ++ show bidPrice
     mo <- try $ orderByPrice pproxy Rigid Buy bidPrice bidAmount
     case mo of
       Left (SomeException e) -> do
@@ -170,6 +163,15 @@ marketMaker pproxy params = do
         tg <- liftIO TG.new
         checkBuy pproxy params tg bidOrder 0
   return ()
+
+
+modifyExchangeRateFunction ::
+  (Amount t1 -> Amount t2) -- ^ original function
+  -> Amount t1 -- ^ amount to remove
+  -> (Amount t1 -> Amount t2) -- ^ modified function
+modifyExchangeRateFunction old_st1 remove_t1 = new_st1 where
+  removed_t2 = old_st1 remove_t1
+  new_st1 t = old_st1 (t+remove_t1) - removed_t2
 
 -- | loop to check our buy status
 checkBuy :: forall t1 t2 e m. (MarketMakerConstraints_ t1 t2 e m)
@@ -187,12 +189,22 @@ checkBuy pproxy params tg bidOrder alreadyAsking = do
     minSpread = minProfitMargin params
     (mmBuy, mmSell) = makerMargin params
 
-  liftIO . putStrLn $ "checking buy order status, amount selling: " ++ show alreadyAsking
-  curExchRate <- getExchangeRate pproxy False
-  OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus pproxy bidOrder
+  --liftIO . putStrLn $ "checking buy order status, amount selling: " ++ show alreadyAsking
+
+
+  OrderStatus os _ (origt1, origt2) (exect1, exect2) <- getStatus pproxy bidOrder
+  curExchRate' <- getExchangeRate pproxy False
 
   let
+    -- recompute the original bid price
+    -- N.B. due to exchange roundoff issue, this may not actually the same price as the order that went through
     bidPrice = makeRatio origt2 origt1
+
+    -- remove our own order from the exchange rate function
+    modified_buyt1 = modifyExchangeRateFunction (buyt1 curExchRate') (origt2 - exect2)
+    curExchRate = curExchRate' { buyt1 = modified_buyt1 }
+
+    -- calculate spread
     (newSpread, highestBidPrice, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
     prevHighestBidPrice = modifyRatio bidPrice (1/(1+mmBuy))
     spreadFromPrevBid = calcSpread_ prevHighestBidPrice lowestAskPrice
@@ -224,6 +236,8 @@ checkBuy pproxy params tg bidOrder alreadyAsking = do
         liftIO $ putStrLn $ "ask price dropped and brought spread below threshold, spread: " ++ show spreadFromPrevBid ++ ", minSpread: " ++ show minSpread
         return True
       -- if highest bid price has passed our bid
+      -- N.B. due to the "exchange round off" issue, it's common for the bid we put in ourselves to raise the highestBidPrice over our margin
+      -- TODO fix it ^
       else if highestBidPrice > bidPrice then do
         liftIO $ putStrLn $ "bid price passed our bid: " ++ show bidPrice ++ ", new highest bid price: " ++ show highestBidPrice
         return True
@@ -289,25 +303,38 @@ checkSell pproxy params bidPrice askOrder alreadySold = do
     (mmBuy, mmSell) = makerMargin params
 
   tid <- liftIO myThreadId
-  curExchRate <- getExchangeRate pproxy False
-  let (_, _, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
+
   OrderStatus os _ (origt1, origt2) (exect1, _) <- getStatus (Proxy :: Proxy (t1,t2,e)) askOrder
 
-  let askPrice = makeRatio origt2 origt1
+  curExchRate' <- getExchangeRate pproxy False
+  let
+    -- recompute the original ask price
+    -- N.B. due to exchange roundoff issue, this may not actually the same price as the order that went through
+    askPrice = makeRatio origt2 origt1
+
+    -- remove our own order from the exchange rate function
+    modified_sellt1 = modifyExchangeRateFunction (sellt1 curExchRate') (origt1 - exect1)
+    curExchRate = curExchRate' { sellt1 = modified_sellt1 }
+
+    -- calculate spread
+    -- N.B it's possible this new spread calculation includes our own 'PartiallyExecuted' buy order in it (not a big deal and unlikely to happen, but worth mentioning)
+    (_, _, lowestAskPrice) = calcSpread curExchRate (orderMin `div` 4)
+
+  -- TODO this should substract tx fees in report
   -- log how much we made
-  when (alreadySold - exect1 > 0) $
-    liftIO $ putStrLn $ (show tid) ++ " sold " ++ show (alreadySold - exect1) ++ " at " ++ show askPrice ++ " over " ++ show bidPrice ++ " for a profit of " ++ show ((askPrice - bidPrice) $:$* (alreadySold - exect1))
+  when (exect1 - alreadySold > 0) $
+    liftIO $ putStrLn $ show tid ++ ": sold " ++ show (alreadySold - exect1) ++ " at " ++ show askPrice ++ " over " ++ show bidPrice ++ " for a profit of " ++ show ((askPrice - bidPrice) $:$* (alreadySold - exect1))
 
   -- If order has not gone through, check it's status and reorder if necessary
   when (os == PartiallyExecuted || os == Pending) $ do
     reorder <-
       -- if lower sell price is put in
       if lowestAskPrice < askPrice then do
-        liftIO $ putStrLn $ "lowest ask price has gone below our sell order, making new sell order"
+        liftIO $ putStrLn $ show tid ++ ": lowest ask price has gone below our sell order, making new sell order"
         return True
       -- if lowest ask price has gone up enough
       else if askPrice < modifyRatio lowestAskPrice (1-mmSell*greedReorderMargin) then do
-        liftIO $ putStrLn $ "lowest ask price has gone up enough, making new sell order"
+        liftIO $ putStrLn $ show tid ++ ": lowest ask price has gone up enough, making new sell order"
         return True
       else
         return False
@@ -315,22 +342,23 @@ checkSell pproxy params bidPrice askOrder alreadySold = do
       didCancel <- cancel pproxy askOrder
       if not didCancel then do
         -- if we didn't manage to cancel, order must have gone through, the next loop will take care of it
-        liftIO $ putStrLn $ "failed to cancel bid"
+        liftIO $ putStrLn $ show tid ++ ": failed to cancel bid"
         checkSell pproxy params bidPrice askOrder exect1
       else do
-        liftIO $ putStrLn $ "cancelled bid"
+        liftIO $ putStrLn $ show tid ++ ": cancelled ask"
         -- log a helpful message to indicate we are losing money
         when (calcSpread_ bidPrice lowestAskPrice < minSpread) $
-          liftIO $ putStrLn $ "warning: ask price has dropped below spread threshold (possible loss)"
+          liftIO $ putStrLn $ show tid ++ ": warning: ask price has dropped below spread threshold (possible loss)"
         let
           askAmount = origt1 - exect1
           askPrice = modifyRatio lowestAskPrice (1-mmSell)
         -- TODO check that the new sell amount is not below the min sell amount
         when (askAmount > 0) $ do
-          liftIO . putStrLn $ "new sell order at " ++ show askPrice ++ " " ++ show askAmount
+          liftIO . putStrLn $ show tid ++ ": new sell order at " ++ show askPrice ++ " " ++ show askAmount
           newAskOrder <- orderByPrice pproxy Rigid Sell askPrice askAmount
           checkSell pproxy params bidPrice newAskOrder exect1
     else
       checkSell pproxy params bidPrice askOrder exect1
 
-  liftIO $ putStrLn $ (show tid) ++ " checkSell done"
+  when (os == Executed) $
+    liftIO $ putStrLn $ show tid ++ ": checkSell done"

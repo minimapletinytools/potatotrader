@@ -1,4 +1,7 @@
+
 ::TODO::
+DONE-remove our own bid when requerying in market maker
+-add parameters for determining decimal places to submit orders in Bilaxy... (right now hardcoded to TT USDT)
 -separate out some functions in market maker instead of using captures...
 -test market maker D:
 -add warning for low balance in arbitrage D: ?

@@ -242,6 +242,9 @@ class (ExchangeToken t1 e, ExchangeToken t2 e) => ExchangePair t1 t2 e where
   getOrders _ = return []
 
   -- | buys `t1` for `t2` tokens OR sells `t1` for `t2` tokens
+  -- N.B. for order matching exchanges, there is usually a decimal place limit on the price and amount
+  -- this means the ACTUAL order may differ than the one passed into arguments even in the case of 'Rigid' orders
+  -- call this the "exchange round off" issue
   order :: (MonadExchange m) => Proxy (t1,t2,e) -> OrderFlex -> OrderType -> Amount t1 -> Amount t2 -> ExchangeT e m (Order t1 t2 e)
 
   -- | returns the status of an order

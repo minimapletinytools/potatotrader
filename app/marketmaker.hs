@@ -50,10 +50,10 @@ main = do
   let
     defTTUSDTMarketMakerParams :: MarketMakerParams TT USDT
     defTTUSDTMarketMakerParams = MarketMakerParams {
-        orderMinMax = (fromStdDenom 150 :: Amount TT, fromStdDenom 150)
+        orderMinMax = (fromStdDenom 1000 :: Amount TT, fromStdDenom 1000)
         --orderMinMax = (fromStdDenom 1000, fromStdDenom 3000)
         , minProfitMargin = AmountRatio (0.00075*3)
-        , makerMargin = (AmountRatio 0.0007, AmountRatio 0.0007)
+        , makerMargin = (AmountRatio 0.0003, AmountRatio 0.0003)
       }
     ctx = ((),nilKey)
   mmForever (Proxy :: Proxy (TT,USDT,Bilaxy)) defTTUSDTMarketMakerParams ctx
