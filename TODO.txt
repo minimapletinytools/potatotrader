@@ -1,5 +1,7 @@
 
 ::TODO::
+-add parameter for how much of bid order is taken before abandoning it
+  -the idea is that you need a larger bid order so a buy order that comes in takes up your whole bid order and not others (which drives the price down and then causes new ask orders to come in and drive the price down more)
 DONE-remove our own bid when requerying in market maker
 -add parameters for determining decimal places to submit orders in Bilaxy... (right now hardcoded to TT USDT)
 -separate out some functions in market maker instead of using captures...
